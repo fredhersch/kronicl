@@ -7,6 +7,10 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { generateMemoryTitleSummaryTags } from '@/ai/flows/generate-memory-title-summary-tags';
 import { useToast } from '@/hooks/use-toast';
+import { db, storage } from '@/lib/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,7 +50,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function NewMemoryForm() {
+export function NewMemoryForm({ userId }: { userId: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
@@ -182,7 +186,7 @@ export function NewMemoryForm() {
     form.setValue('tags', newTags, { shouldValidate: true });
   };
   
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     if (mediaFiles.length === 0) {
         toast({
             variant: 'destructive',
@@ -192,29 +196,102 @@ export function NewMemoryForm() {
         return;
     }
     setIsUploading(true);
-    setUploadProgress(0);
-    const interval = setInterval(() => {
-        setUploadProgress((prev) => {
-            if (prev >= 95) return prev;
-            return prev + Math.floor(Math.random() * 10) + 5;
-        });
-    }, 500);
+    
+    let totalProgress = 0;
+    const mediaItems: { type: 'image' | 'video'; url: string }[] = [];
+    let audioUrl = '';
 
-    setTimeout(() => {
-        clearInterval(interval);
-        setUploadProgress(100);
-        setTimeout(() => {
-            toast({
-                title: 'Memory Created!',
-                description: 'Your new memory has been saved.',
-            });
-            router.push('/');
-        }, 500);
-    }, 5000);
+    const uploadTasks = [];
+
+    // Upload media files
+    for (const file of mediaFiles) {
+        const fileId = uuidv4();
+        const storageRef = ref(storage, `memories/${userId}/${fileId}-${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        const taskPromise = new Promise<void>((resolve, reject) => {
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * (100 / (mediaFiles.length + (audioBlob ? 1: 0)));
+                    totalProgress += progress;
+                    setUploadProgress(totalProgress);
+                },
+                (error) => {
+                    console.error("Upload failed:", error);
+                    reject(error);
+                },
+                async () => {
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    mediaItems.push({
+                        type: file.type.startsWith('image/') ? 'image' : 'video',
+                        url: downloadURL
+                    });
+                    resolve();
+                }
+            );
+        });
+        uploadTasks.push(taskPromise);
+    }
+    
+    // Upload audio file
+    if (audioBlob) {
+        const audioId = uuidv4();
+        const audioRef = ref(storage, `memories/${userId}/audio/${audioId}.webm`);
+        const uploadTask = uploadBytesResumable(audioRef, audioBlob);
+        
+        const taskPromise = new Promise<void>((resolve, reject) => {
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * (100 / (mediaFiles.length + 1));
+                    totalProgress += progress;
+                    setUploadProgress(totalProgress);
+                },
+                (error) => {
+                    console.error("Audio upload failed:", error);
+                    reject(error);
+                },
+                async () => {
+                    audioUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                    resolve();
+                }
+            );
+        });
+        uploadTasks.push(taskPromise);
+    }
+
+    try {
+        await Promise.all(uploadTasks);
+
+        await addDoc(collection(db, 'memories'), {
+            ...data,
+            userId,
+            media: mediaItems,
+            audioUrl,
+            createdAt: serverTimestamp(),
+            // Mocked data for fields not in form
+            latitude: 40.7128,
+            longitude: -74.0060,
+            sentiment: 'neutral',
+        });
+
+        toast({
+            title: 'Memory Created!',
+            description: 'Your new memory has been saved.',
+        });
+        router.push('/');
+    } catch (error) {
+        console.error("Error creating memory:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Failed to create memory',
+            description: 'There was an error saving your memory. Please try again.',
+        });
+    } finally {
+        setIsUploading(false);
+    }
   };
   
   if (isUploading) {
-      const estimatedTime = Math.max(1, Math.round((100 - uploadProgress) / 20));
       return (
           <Card>
               <CardHeader>
@@ -223,9 +300,8 @@ export function NewMemoryForm() {
               </CardHeader>
               <CardContent className="space-y-4">
                   <Progress value={uploadProgress} className="w-full" />
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{uploadProgress}% complete</span>
-                      <span>About {estimatedTime} seconds remaining</span>
+                  <div className="flex justify-center text-sm text-muted-foreground">
+                      <span>{Math.round(uploadProgress)}% complete</span>
                   </div>
               </CardContent>
           </Card>
@@ -428,7 +504,10 @@ export function NewMemoryForm() {
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" size="lg">Save Memory</Button>
+          <Button type="submit" size="lg" disabled={isUploading}>
+            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+            Save Memory
+          </Button>
         </div>
       </form>
     </Form>

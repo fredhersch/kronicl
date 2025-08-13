@@ -1,5 +1,6 @@
 export type Memory = {
   id: string;
+  userId: string;
   title: string;
   summary: string;
   date: string; // ISO format
@@ -11,8 +12,8 @@ export type Memory = {
     url: string;
     dataAiHint?: string;
   }[];
-  audioUrl: string;
-  transcription: string;
+  audioUrl?: string;
+  transcription?: string;
   tags: string[];
   sentiment: 'positive' | 'negative' | 'neutral';
 };

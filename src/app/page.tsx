@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Header } from '@/components/header';
 import { MemoryList } from '@/components/memories/memory-list';
-import { memories as allMemories } from '@/lib/data';
 import type { Memory } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,14 +12,36 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [memories, setMemories] = useState<Memory[]>(allMemories);
-  const [filteredMemories, setFilteredMemories] = useState<Memory[]>(allMemories);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [filteredMemories, setFilteredMemories] = useState<Memory[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (user) {
+      setDataLoading(true);
+      const q = query(collection(db, 'memories'), where('userId', '==', user.uid));
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const userMemories = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: data.date.toDate().toISOString(),
+          } as Memory;
+        });
+        setMemories(userMemories);
+        setFilteredMemories(userMemories);
+        setDataLoading(false);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
 
   const handleSearch = (query: string) => {
     const lowerCaseQuery = query.toLowerCase();
@@ -30,13 +53,13 @@ export default function Dashboard() {
       (memory) =>
         memory.title.toLowerCase().includes(lowerCaseQuery) ||
         memory.summary.toLowerCase().includes(lowerCaseQuery) ||
-        memory.transcription.toLowerCase().includes(lowerCaseQuery) ||
+        (memory.transcription && memory.transcription.toLowerCase().includes(lowerCaseQuery)) ||
         memory.tags.some((tag) => tag.toLowerCase().includes(lowerCaseQuery))
     );
     setFilteredMemories(results);
   };
   
-  if (loading || !user) {
+  if (loading || !user || dataLoading) {
     return (
         <div className="flex flex-col min-h-screen bg-background">
           <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 border-b bg-background/80 backdrop-blur-sm sm:px-6 md:px-8">

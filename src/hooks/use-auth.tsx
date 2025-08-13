@@ -1,13 +1,11 @@
 'use client';
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
+import { useToast } from './use-toast';
 
-// Mock user type
-interface User {
-  displayName: string;
-  email: string;
-  photoURL: string;
-}
+interface User extends FirebaseUser {}
 
 interface AuthContextType {
   user: User | null;
@@ -22,35 +20,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('memorylane-user');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
-      localStorage.removeItem('memorylane-user');
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user as User);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const signIn = () => {
-    const mockUser: User = {
-      displayName: 'Alex Doe',
-      email: 'alex.doe@example.com',
-      photoURL: 'https://placehold.co/100x100.png',
-    };
-    localStorage.setItem('memorylane-user', JSON.stringify(mockUser));
-    setUser(mockUser);
-    router.push('/');
+  const signIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      router.push('/');
+    } catch (error) {
+      console.error("Sign in failed:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Sign In Failed',
+        description: 'Could not sign in with Google. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signOut = () => {
-    localStorage.removeItem('memorylane-user');
-    setUser(null);
-    router.push('/login');
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Sign Out Failed',
+        description: 'Could not sign out. Please try again.',
+      });
+    }
   };
 
   return (
