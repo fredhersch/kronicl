@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithRedirect, signOut as firebaseSignOut, User as FirebaseUser, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
 
@@ -28,30 +28,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
-
-  const signIn = async () => {
-    setLoading(true);
-    try {
-      await signInWithPopup(auth, googleProvider);
-      router.push('/');
-    } catch (error: any) {
-      if (error.code === 'auth/popup-closed-by-user') {
-         toast({
-          variant: 'default',
-          title: 'Sign-in cancelled',
-          description: 'The sign-in window was closed before completing.',
-        });
-      } else {
-        console.error("Sign in failed:", error);
+    // Check for redirect result
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          // This is the signed-in user
+          const user = result.user;
+          setUser(user as User);
+          router.push('/');
+        }
+      })
+      .catch((error) => {
+         console.error("Redirect sign in failed:", error);
         toast({
           variant: 'destructive',
           title: 'Sign In Failed',
           description: 'Could not sign in with Google. Please try again.',
         });
-      }
-    } finally {
+      }).finally(() => {
+          setLoading(false);
+      });
+
+    return () => unsubscribe();
+  }, [router, toast]);
+
+  const signIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithRedirect(auth, googleProvider);
+    } catch (error: any) {
+      console.error("Sign in failed:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Sign In Failed',
+        description: 'Could not sign in with Google. Please try again.',
+      });
       setLoading(false);
     }
   };
