@@ -31,24 +31,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // while an async operation is still in progress.
     let isMounted = true;
 
-    // Set up the primary listener for authentication state changes.
-    // This is the single source of truth for the user's login status.
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (isMounted) {
-        console.log(currentUser ? "Auth State Changed: User is signed in" : "Auth State Changed: User is signed out", currentUser);
-        setUser(currentUser as User);
-        // Once this listener fires, we know the initial auth state has been determined.
-        setLoading(false);
-      }
-    });
-
-    // Separately, check for the result of a sign-in redirect.
-    // This is a one-time operation on page load.
     getRedirectResult(auth)
       .then((result) => {
         if (result && isMounted) {
           // A user has just signed in via redirect.
-          // The `onAuthStateChanged` listener above will handle setting the user state.
+          // The `onAuthStateChanged` listener below will handle setting the user state.
           console.log("Redirect result successful:", result.user);
           router.push('/');
         }
@@ -63,13 +50,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             description: 'Could not sign in with Google. Please try again.',
           });
         }
+      })
+      .finally(() => {
+         // After attempting to get the redirect result, set up the primary listener.
+         // This ensures we catch both direct auth state changes and redirect results.
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (isMounted) {
+              console.log(currentUser ? "Auth State Changed: User is signed in" : "Auth State Changed: User is signed out", currentUser);
+              setUser(currentUser as User);
+              // We can now safely say the auth state is determined.
+              setLoading(false);
+            }
+        });
+        
+        // Cleanup function for the listener
+        return () => {
+            if (isMounted) {
+                unsubscribe();
+            }
+        };
       });
 
-    // Cleanup function: Set the mounted flag to false and unsubscribe the listener
-    // when the component unmounts.
+    // Main cleanup function for the component
     return () => {
       isMounted = false;
-      unsubscribe();
     };
     // The dependency array is empty to ensure this effect runs only once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,7 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Function to initiate the sign-in process
   const signIn = async () => {
-    setLoading(true); // Set loading to true before redirecting
     try {
       await signInWithRedirect(auth, googleProvider);
     } catch (error: any) {
@@ -87,7 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: 'Sign In Failed',
         description: 'Could not sign in with Google. Please try again.',
       });
-      setLoading(false); // Stop loading if there's an immediate error
     }
   };
 
