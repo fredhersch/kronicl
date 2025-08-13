@@ -5,8 +5,10 @@ import { onAuthStateChanged, signInWithRedirect, signOut as firebaseSignOut, Use
 import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
 
+// Define a type for the user object, extending the FirebaseUser
 interface User extends FirebaseUser {}
 
+// Define the shape of the authentication context
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -14,46 +16,68 @@ interface AuthContextType {
   signOut: () => void;
 }
 
+// Create the authentication context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// AuthProvider component to wrap the application and provide auth state
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user as User);
-      setLoading(false);
+    // This flag prevents state updates if the component unmounts
+    // while an async operation is still in progress.
+    let isMounted = true;
+
+    // Set up the primary listener for authentication state changes.
+    // This is the single source of truth for the user's login status.
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (isMounted) {
+        console.log(currentUser ? "Auth State Changed: User is signed in" : "Auth State Changed: User is signed out", currentUser);
+        setUser(currentUser as User);
+        // Once this listener fires, we know the initial auth state has been determined.
+        setLoading(false);
+      }
     });
 
-    // Check for redirect result
+    // Separately, check for the result of a sign-in redirect.
+    // This is a one-time operation on page load.
     getRedirectResult(auth)
       .then((result) => {
-        if (result) {
-          // This is the signed-in user
-          const user = result.user;
-          setUser(user as User);
+        if (result && isMounted) {
+          // A user has just signed in via redirect.
+          // The `onAuthStateChanged` listener above will handle setting the user state.
+          console.log("Redirect result successful:", result.user);
           router.push('/');
         }
       })
       .catch((error) => {
-         console.error("Redirect sign in failed:", error);
-        toast({
-          variant: 'destructive',
-          title: 'Sign In Failed',
-          description: 'Could not sign in with Google. Please try again.',
-        });
-      }).finally(() => {
-          setLoading(false);
+        // Handle any errors from the redirect operation.
+        console.error("Redirect sign in error:", error);
+        if (isMounted) {
+          toast({
+            variant: 'destructive',
+            title: 'Sign In Failed',
+            description: 'Could not sign in with Google. Please try again.',
+          });
+        }
       });
 
-    return () => unsubscribe();
-  }, [router, toast]);
+    // Cleanup function: Set the mounted flag to false and unsubscribe the listener
+    // when the component unmounts.
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+    // The dependency array is empty to ensure this effect runs only once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Function to initiate the sign-in process
   const signIn = async () => {
-    setLoading(true);
+    setLoading(true); // Set loading to true before redirecting
     try {
       await signInWithRedirect(auth, googleProvider);
     } catch (error: any) {
@@ -63,14 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: 'Sign In Failed',
         description: 'Could not sign in with Google. Please try again.',
       });
-      setLoading(false);
+      setLoading(false); // Stop loading if there's an immediate error
     }
   };
 
+  // Function to sign the user out
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
-      router.push('/login');
+      // After signing out, the onAuthStateChanged listener will set user to null
+      router.push('/login'); // Redirect to the login page
     } catch (error) {
       console.error("Sign out failed:", error);
       toast({
@@ -81,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Provide the auth state and functions to the rest of the app
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
       {children}
@@ -88,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Custom hook to easily access the auth context
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
