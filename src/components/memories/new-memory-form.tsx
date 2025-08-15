@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { generateMemoryTitleSummaryTags } from '@/ai/flows/generate-memory-title-summary-tags';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -50,12 +51,24 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const blobToDataUri = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(reader.result as string);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 export function NewMemoryForm({ userId }: { userId: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -82,7 +95,6 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const files = Array.from(event.target.files);
-      // Basic validation: up to 3 images or 1 video
       const imageCount = files.filter(f => f.type.startsWith('image/')).length;
       const videoCount = files.filter(f => f.type.startsWith('video/')).length;
       if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
@@ -103,17 +115,30 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       const chunks: BlobPart[] = [];
       mediaRecorderRef.current.ondataavailable = (event) => {
         chunks.push(event.data);
       };
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
         setAudioBlob(blob);
-        // Mock transcription
-        form.setValue('transcription', 'This is a mock transcription of the recorded audio note. In a real application, this would be generated from the audio file.');
         stream.getTracks().forEach(track => track.stop());
+
+        setIsTranscribing(true);
+        try {
+          const audioDataUri = await blobToDataUri(blob);
+          const result = await transcribeAudio({ audioDataUri });
+          form.setValue('transcription', result.transcription);
+        } catch (error) {
+          toast({
+            variant: 'destructive',
+            title: 'Transcription Failed',
+            description: 'Could not transcribe audio. Please try again.',
+          });
+        } finally {
+          setIsTranscribing(false);
+        }
       };
       mediaRecorderRef.current.start();
       setIsRecording(true);
@@ -352,7 +377,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
-              <Button type="button" onClick={isRecording ? stopRecording : startRecording} className={`w-24 ${isRecording ? 'bg-destructive hover:bg-destructive/90' : ''}`}>
+              <Button type="button" onClick={isRecording ? stopRecording : startRecording} className={`w-24 ${isRecording ? 'bg-destructive hover:bg-destructive/90' : ''}`} disabled={isTranscribing}>
                 {isRecording ? <Square className="mr-2 h-4 w-4"/> : <Mic className="mr-2 h-4 w-4"/>}
                 {isRecording ? 'Stop' : 'Record'}
               </Button>
@@ -362,7 +387,13 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   <span>{format(recordingTime * 1000, 'mm:ss')}</span>
                 </div>
               )}
-              {audioBlob && !isRecording && (
+               {isTranscribing && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Transcribing...</span>
+                </div>
+              )}
+              {audioBlob && !isRecording && !isTranscribing && (
                 <audio controls src={URL.createObjectURL(audioBlob)} className="h-10"></audio>
               )}
             </div>
@@ -374,7 +405,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                 <FormItem>
                   <FormLabel className="flex items-center gap-2"><FileText className="w-5 h-5"/> Transcription</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Your transcription will appear here..." {...field} rows={5} />
+                    <Textarea placeholder="Your transcription will appear here..." {...field} rows={5} disabled={isTranscribing} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -387,7 +418,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle>AI Generated Content</CardTitle>
-                     <Button type="button" onClick={handleGenerateContent} disabled={isGenerating}>
+                     <Button type="button" onClick={handleGenerateContent} disabled={isGenerating || !transcription}>
                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
                         Generate
                     </Button>
@@ -504,7 +535,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={isUploading}>
+          <Button type="submit" size="lg" disabled={isUploading || isTranscribing}>
             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
             Save Memory
           </Button>
