@@ -21,7 +21,7 @@ export function MemoryCard({ memory }: MemoryCardProps) {
 
   return (
     <Link href={`/memories/${memory.id}`} className="block group">
-      <Card className="overflow-hidden h-full transition-all duration-300 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 bg-card">
+      <Card className="overflow-hidden h-full transition-all duration-300 rounded-xl shadow-sm hover:shadow-lg border-border/20">
         <CardContent className="p-0">
           <div className="relative w-full h-48">
             <Image

@@ -61,7 +61,7 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-sm shadow-xl">
+    <Card className="w-full max-w-sm shadow-lg bg-card/80 backdrop-blur-sm border-border/20">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
           <Logo className="w-12 h-12 text-primary" />
@@ -115,7 +115,7 @@ export function LoginForm() {
                 <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
             </div>
         </div>
         <Button

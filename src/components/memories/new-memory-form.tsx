@@ -379,7 +379,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                 <div className="grid gap-4">
                     <div className="flex flex-wrap gap-4">
                         {mediaFiles.map((file, i) => (
-                            <div key={i} className="relative w-32 h-32 rounded-lg overflow-hidden border">
+                            <div key={i} className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-border/40">
                                 {file.type.startsWith('image/') ? (
                                     <Image src={URL.createObjectURL(file)} alt={file.name} layout="fill" objectFit="cover" />
                                 ) : (
@@ -387,12 +387,12 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                                         <Video className="w-10 h-10 text-white" />
                                     </div>
                                 )}
-                                <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6" onClick={() => setMediaFiles(mediaFiles.filter((_, idx) => idx !== i))}>
+                                <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6 z-10" onClick={() => setMediaFiles(mediaFiles.filter((_, idx) => idx !== i))}>
                                     <X className="h-4 w-4" />
                                 </Button>
                             </div>
                         ))}
-                         <label className="w-32 h-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                         <label className="w-32 h-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
                             <ImageIcon className="w-10 h-10 text-muted-foreground" />
                             <span className="text-xs mt-1 text-muted-foreground">Add Media</span>
                             <input type="file" multiple accept="image/*,video/*" className="sr-only" onChange={handleFileChange} />
@@ -436,7 +436,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
               name="transcription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center gap-2"><FileText className="w-5 h-5"/> Transcription</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-medium"><FileText className="w-5 h-5"/> Transcription</FormLabel>
                   <FormControl>
                     <Textarea placeholder="Your transcription will appear here..." {...field} rows={5} disabled={isProcessingAI} />
                   </FormControl>
@@ -449,16 +449,16 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         
         <Card>
             <CardHeader>
-                <CardTitle>AI Generated Content</CardTitle>
-                <CardDescription>Let AI help you craft the perfect title, summary, and tags from your transcription.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Wand2 className="w-6 h-6"/> AI Generated Content</CardTitle>
+                <CardDescription>Review and edit the AI-generated title, summary, and tags.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
                 <FormField
                   control={form.control}
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Title</FormLabel>
+                      <FormLabel className="font-medium">Title</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., Sunny Day at the Beach" {...field} />
                       </FormControl>
@@ -471,7 +471,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   name="summary"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Summary</FormLabel>
+                      <FormLabel className="font-medium">Summary</FormLabel>
                       <FormControl>
                         <Textarea placeholder="e.g., A wonderful day spent with family..." {...field} />
                       </FormControl>
@@ -484,12 +484,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   name="tags"
                   render={() => (
                     <FormItem>
-                       <FormLabel className="flex items-center gap-2"><Tag className="w-5 h-5"/> Tags</FormLabel>
+                       <FormLabel className="flex items-center gap-2 font-medium"><Tag className="w-5 h-5"/> Tags</FormLabel>
                       <FormControl>
-                          <div className="flex items-center gap-2 border rounded-md p-2">
-                             <div className="flex flex-wrap gap-2 flex-1">
+                          <div className="flex items-center gap-2 border rounded-md p-2 flex-wrap">
                               {tags.map((tag, i) => (
-                                <Badge key={i} variant="secondary">
+                                <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
                                   {tag}
                                   <button type="button" onClick={() => removeTag(tag)} className="ml-2 rounded-full hover:bg-destructive/20 p-0.5">
                                       <X className="h-3 w-3" />
@@ -501,10 +500,9 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                                     value={tagInput}
                                     onChange={(e) => setTagInput(e.target.value)}
                                     onKeyDown={handleTagKeyDown}
-                                    placeholder="Add a tag..."
-                                    className="bg-transparent outline-none flex-1 min-w-[80px]"
+                                    placeholder="Add a tag and press Enter..."
+                                    className="bg-transparent outline-none flex-1 min-w-[150px] p-1"
                                 />
-                             </div>
                           </div>
                       </FormControl>
                       <FormMessage />
@@ -519,17 +517,17 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             <CardTitle>Details</CardTitle>
             <CardDescription>Add the date and location of your memory.</CardDescription>
           </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-6">
+          <CardContent className="grid md:grid-cols-2 gap-8">
             <FormField
               control={form.control}
               name="date"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel className="flex items-center gap-2"><CalendarIcon className="w-5 h-5"/> Date</FormLabel>
+                <FormItem className="flex flex-col gap-2">
+                  <FormLabel className="flex items-center gap-2 font-medium"><CalendarIcon className="w-5 h-5"/> Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
-                        <Button variant={"outline"} className="pl-3 text-left font-normal">
+                        <Button variant={"outline"} className="pl-3 text-left font-normal justify-start">
                           {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
                         </Button>
                       </FormControl>
@@ -548,7 +546,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   name="location"
                   render={({ field }) => (
                     <FormItem>
-                       <FormLabel className="flex items-center gap-2"><MapPin className="w-5 h-5"/> Location</FormLabel>
+                       <FormLabel className="flex items-center gap-2 font-medium"><MapPin className="w-5 h-5"/> Location</FormLabel>
                        <FormControl>
                          <Input placeholder="Search for a location" {...field} />
                       </FormControl>
@@ -561,8 +559,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={isUploading || isProcessingAI}>
+        <div className="flex justify-end pt-4">
+          <Button type="submit" size="lg" disabled={isUploading || isProcessingAI} className="min-w-[150px]">
             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
             Save Memory
           </Button>
