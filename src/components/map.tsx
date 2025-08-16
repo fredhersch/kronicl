@@ -13,7 +13,7 @@ export function Map({ latitude, longitude }: MapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   // If no API key is available, we'll fall back to a placeholder.
-  const mapImageUrl = apiKey
+  const mapImageUrl = apiKey && apiKey !== 'YOUR_API_KEY_HERE'
     ? `https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=14&size=600x400&maptype=roadmap&markers=color:red%7C${latitude},${longitude}&key=${apiKey}`
     : `https://placehold.co/600x400.png`;
 
@@ -25,9 +25,9 @@ export function Map({ latitude, longitude }: MapProps) {
         alt={`Map centered at ${latitude}, ${longitude}`}
         layout="fill"
         objectFit="cover"
-        className={!apiKey ? 'opacity-50' : ''}
+        className={!apiKey || apiKey === 'YOUR_API_KEY_HERE' ? 'opacity-50' : ''}
       />
-      {!apiKey && (
+      {(!apiKey || apiKey === 'YOUR_API_KEY_HERE') && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
           <MapPin className="w-8 h-8 text-primary" />
           <p className="text-xs text-muted-foreground mt-2">
