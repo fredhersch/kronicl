@@ -89,29 +89,49 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   });
 
   useEffect(() => {
+    const fetchLocation = async (latitude: number, longitude: number) => {
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+        form.setValue('location', `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+        return;
+      }
+      try {
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`);
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          form.setValue('location', data.results[0].formatted_address);
+        } else {
+          form.setValue('location', `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+        }
+      } catch (error) {
+        console.error('Reverse geocoding failed', error);
+        form.setValue('location', `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+      }
+    };
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setLatitude(position.coords.latitude);
           setLongitude(position.coords.longitude);
-          // For simplicity, we are not doing reverse geocoding here.
-          // A real app would use a service to get address from coordinates.
-          form.setValue('location', `Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`);
+          fetchLocation(position.coords.latitude, position.coords.longitude);
         },
         (error) => {
           console.error("Error getting location:", error);
           toast({
             variant: "destructive",
             title: "Could not get location",
-            description: "Please ensure location services are enabled.",
+            description: "Using default location. Please ensure location services are enabled.",
           });
+          fetchLocation(latitude, longitude); // Use default location
         }
       );
+    } else {
+        fetchLocation(latitude, longitude); // Use default location if geolocation is not supported
     }
-  }, [form, toast]);
+  }, [form, toast, latitude, longitude]);
 
   const tags = form.watch('tags');
-  const transcription = form.watch('transcription');
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
