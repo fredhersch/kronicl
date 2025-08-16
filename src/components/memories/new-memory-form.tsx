@@ -93,21 +93,30 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      const files = Array.from(event.target.files);
-      const imageCount = files.filter(f => f.type.startsWith('image/')).length;
-      const videoCount = files.filter(f => f.type.startsWith('video/')).length;
+      const newFiles = Array.from(event.target.files);
+      const combinedFiles = [...mediaFiles, ...newFiles];
+      const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
+      const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
+
       if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
         toast({
           variant: 'destructive',
           title: 'Invalid selection',
           description: 'You can upload up to 3 images or 1 video.',
         });
+        // Reset file input to allow re-selection
+        event.target.value = '';
         return;
       }
-      setMediaFiles(files);
-      if (files.length > 0) {
-        form.setValue('date', new Date(files[0].lastModified));
+      
+      setMediaFiles(combinedFiles);
+
+      if (combinedFiles.length > 0 && mediaFiles.length === 0) {
+        form.setValue('date', new Date(combinedFiles[0].lastModified));
       }
+      
+      // Reset file input to allow re-selection of the same file if needed after removal
+      event.target.value = '';
     }
   };
 
@@ -226,6 +235,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
     setIsUploading(true);
+    setUploadProgress(0);
     
     const mediaItems: { type: 'image' | 'video'; url: string }[] = [];
     let audioUrl = '';
@@ -233,7 +243,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     const uploadTasks: Promise<void>[] = [];
     const filesToUpload = [...mediaFiles];
     if (audioBlob) {
-        filesToUpload.push(audioBlob as File);
+        filesToUpload.push(new File([audioBlob], 'audio.webm', { type: 'audio/webm' }));
     }
 
     const fileProgress: { [key: string]: number } = {};
