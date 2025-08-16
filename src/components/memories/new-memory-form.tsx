@@ -156,6 +156,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       };
       mediaRecorderRef.current.start();
       setIsRecording(true);
+      setRecordingTime(0);
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           if (prev >= 300) {
@@ -181,7 +182,6 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
       }
-      setRecordingTime(0);
     }
   };
   
@@ -415,7 +415,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
               {isRecording && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <div className="w-3 h-3 rounded-full bg-destructive animate-pulse"></div>
-                  <span>{format(recordingTime * 1000, 'mm:ss')}</span>
+                  <span>{format(new Date(0).setSeconds(recordingTime), 'mm:ss')}</span>
                 </div>
               )}
                {isProcessingAI && (
