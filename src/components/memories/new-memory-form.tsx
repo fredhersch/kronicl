@@ -75,6 +75,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
+  
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -90,13 +92,12 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
   useEffect(() => {
     const fetchLocation = async (latitude: number, longitude: number) => {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
         form.setValue('location', `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
         return;
       }
       try {
-        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`);
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleMapsApiKey}`);
         const data = await response.json();
         if (data.results && data.results.length > 0) {
           form.setValue('location', data.results[0].formatted_address);
@@ -129,7 +130,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     } else {
         fetchLocation(latitude, longitude); // Use default location if geolocation is not supported
     }
-  }, [form, toast, latitude, longitude]);
+  }, [form, toast, latitude, longitude, googleMapsApiKey]);
 
   const tags = form.watch('tags');
 
@@ -574,7 +575,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     </FormItem>
                   )}
                 />
-                <Map latitude={latitude} longitude={longitude} />
+                <Map latitude={latitude} longitude={longitude} apiKey={googleMapsApiKey} />
             </div>
           </CardContent>
         </Card>

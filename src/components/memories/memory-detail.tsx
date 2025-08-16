@@ -14,6 +14,8 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
     neutral: <Meh className="w-5 h-5 text-yellow-500" />,
     negative: <Frown className="w-5 h-5 text-red-500" />,
   }[memory.sentiment];
+  
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -113,7 +115,7 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
                <CardTitle className="font-headline text-2xl">Location</CardTitle>
             </CardHeader>
             <CardContent>
-              <Map latitude={memory.latitude} longitude={memory.longitude} />
+              <Map latitude={memory.latitude} longitude={memory.longitude} apiKey={googleMapsApiKey} />
             </CardContent>
           </Card>
 
