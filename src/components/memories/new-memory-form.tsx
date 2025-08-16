@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
 import { generateMemoryTitleSummaryTags } from '@/ai/flows/generate-memory-title-summary-tags';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +38,7 @@ import {
   Cloud,
 } from 'lucide-react';
 import Image from 'next/image';
+import { format } from 'date-fns';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -182,32 +182,6 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
       }
-    }
-  };
-  
-  const handleGenerateContent = async () => {
-    if (!transcription) {
-      toast({
-        variant: 'destructive',
-        title: 'Transcription is empty',
-        description: 'Please record an audio note or write a transcription first.',
-      });
-      return;
-    }
-    setIsProcessingAI(true);
-    try {
-      const result = await generateMemoryTitleSummaryTags({ transcription });
-      form.setValue('title', result.title);
-      form.setValue('summary', result.summary);
-      form.setValue('tags', result.tags);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'AI Generation Failed',
-        description: 'Could not generate content. Please try again.',
-      });
-    } finally {
-      setIsProcessingAI(false);
     }
   };
   
@@ -410,7 +384,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Mic className="w-6 h-6"/> Audio Note & Transcription</CardTitle>
-            <CardDescription>Record an audio note (up to 300s). We'll transcribe it for you.</CardDescription>
+            <CardDescription>Record an audio note (up to 300s). We'll transcribe it and generate content for you.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
@@ -453,13 +427,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         
         <Card>
             <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>AI Generated Content</CardTitle>
-                     <Button type="button" onClick={handleGenerateContent} disabled={isProcessingAI || !transcription}>
-                        {isProcessingAI ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
-                        Generate
-                    </Button>
-                </div>
+                <CardTitle>AI Generated Content</CardTitle>
                 <CardDescription>Let AI help you craft the perfect title, summary, and tags from your transcription.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
