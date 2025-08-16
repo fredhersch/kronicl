@@ -227,27 +227,41 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     }
     setIsUploading(true);
     
-    let totalProgress = 0;
     const mediaItems: { type: 'image' | 'video'; url: string }[] = [];
     let audioUrl = '';
 
-    const uploadTasks = [];
+    const uploadTasks: Promise<void>[] = [];
+    const filesToUpload = [...mediaFiles];
+    if (audioBlob) {
+        filesToUpload.push(audioBlob as File);
+    }
+
+    const fileProgress: { [key: string]: number } = {};
+    const totalSize = filesToUpload.reduce((acc, file) => acc + file.size, 0);
+
+    const updateProgress = () => {
+        const uploadedBytes = Object.values(fileProgress).reduce((acc, bytes) => acc + bytes, 0);
+        const progress = totalSize > 0 ? (uploadedBytes / totalSize) * 100 : 0;
+        setUploadProgress(progress);
+    };
 
     // Upload media files
     for (const file of mediaFiles) {
         const fileId = uuidv4();
-        const storageRef = ref(storage, `memories/${userId}/${fileId}-${file.name}`);
+        const fileName = `${fileId}-${file.name}`;
+        const storageRef = ref(storage, `memories/${userId}/${fileName}`);
         const uploadTask = uploadBytesResumable(storageRef, file);
 
         const taskPromise = new Promise<void>((resolve, reject) => {
             uploadTask.on('state_changed',
                 (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * (100 / (mediaFiles.length + (audioBlob ? 1: 0)));
-                    totalProgress += progress;
-                    setUploadProgress(totalProgress);
+                    fileProgress[fileName] = snapshot.bytesTransferred;
+                    updateProgress();
                 },
                 (error) => {
-                    console.error("Upload failed:", error);
+                    console.error("Upload failed for", fileName, error);
+                    delete fileProgress[fileName];
+                    updateProgress();
                     reject(error);
                 },
                 async () => {
@@ -266,18 +280,20 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     // Upload audio file
     if (audioBlob) {
         const audioId = uuidv4();
-        const audioRef = ref(storage, `memories/${userId}/audio/${audioId}.webm`);
+        const audioName = `${audioId}.webm`;
+        const audioRef = ref(storage, `memories/${userId}/audio/${audioName}`);
         const uploadTask = uploadBytesResumable(audioRef, audioBlob);
         
         const taskPromise = new Promise<void>((resolve, reject) => {
             uploadTask.on('state_changed',
                 (snapshot) => {
-                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * (100 / (mediaFiles.length + 1));
-                    totalProgress += progress;
-                    setUploadProgress(totalProgress);
+                    fileProgress[audioName] = snapshot.bytesTransferred;
+                    updateProgress();
                 },
                 (error) => {
                     console.error("Audio upload failed:", error);
+                    delete fileProgress[audioName];
+                    updateProgress();
                     reject(error);
                 },
                 async () => {
