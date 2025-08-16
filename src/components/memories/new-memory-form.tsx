@@ -346,6 +346,12 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         setIsUploading(false);
     }
   };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  };
   
   if (isUploading) {
       return (
@@ -415,7 +421,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
               {isRecording && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <div className="w-3 h-3 rounded-full bg-destructive animate-pulse"></div>
-                  <span>{format(new Date(0).setSeconds(recordingTime), 'mm:ss')}</span>
+                  <span>{formatTime(recordingTime)}</span>
                 </div>
               )}
                {isProcessingAI && (
