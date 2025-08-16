@@ -75,6 +75,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [tagInput, setTagInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [latitude, setLatitude] = useState(40.7128);
+  const [longitude, setLongitude] = useState(-74.006);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -87,6 +89,28 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       tags: [],
     },
   });
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLatitude(position.coords.latitude);
+          setLongitude(position.coords.longitude);
+          // For simplicity, we are not doing reverse geocoding here.
+          // A real app would use a service to get address from coordinates.
+          form.setValue('location', `Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast({
+            variant: "destructive",
+            title: "Could not get location",
+            description: "Please ensure location services are enabled.",
+          });
+        }
+      );
+    }
+  }, [form, toast]);
 
   const tags = form.watch('tags');
   const transcription = form.watch('transcription');
@@ -298,9 +322,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             media: mediaItems,
             audioUrl,
             createdAt: serverTimestamp(),
-            // Mocked data for fields not in form
-            latitude: 40.7128,
-            longitude: -74.0060,
+            latitude: latitude,
+            longitude: longitude,
             sentiment: 'neutral',
         });
 
@@ -534,7 +557,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     </FormItem>
                   )}
                 />
-                <Map latitude={40.7128} longitude={-74.0060} />
+                <Map latitude={latitude} longitude={longitude} />
             </div>
           </CardContent>
         </Card>
