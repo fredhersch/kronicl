@@ -76,7 +76,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
   
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

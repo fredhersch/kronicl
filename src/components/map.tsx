@@ -67,7 +67,7 @@ export function Map({ latitude, longitude, apiKey }: MapProps) {
       <div className="w-full h-48 bg-muted rounded-lg overflow-hidden border flex flex-col items-center justify-center text-center p-4">
         <MapPin className="w-8 h-8 text-primary" />
         <p className="text-xs text-muted-foreground mt-2">
-          Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env file to display the map.
+          Add NEXT_PUBLIC_FIREBASE_API_KEY to your .env file to display the map.
         </p>
       </div>
     );

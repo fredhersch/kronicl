@@ -15,7 +15,7 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
     negative: <Frown className="w-5 h-5 text-red-500" />,
   }[memory.sentiment];
   
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
