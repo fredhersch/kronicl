@@ -11,6 +11,7 @@ import { db, storage } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
+import wav from 'wav';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,15 +52,41 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const blobToDataUri = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      resolve(reader.result as string);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+const webmToWavDataUri = async (webmBlob: Blob): Promise<string> => {
+    const arrayBuffer = await webmBlob.arrayBuffer();
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // The 'wav' package expects raw PCM data.
+    // We get this from the AudioBuffer.
+    const pcmData = audioBuffer.getChannelData(0);
+    
+    // We need to convert the Float32Array to a 16-bit PCM buffer
+    const pcmBuffer = Buffer.alloc(pcmData.length * 2);
+    for (let i = 0; i < pcmData.length; i++) {
+        const val = Math.max(-1, Math.min(1, pcmData[i]));
+        pcmBuffer.writeInt16LE(val * 0x7FFF, i * 2);
+    }
+
+    return new Promise((resolve, reject) => {
+        const encoder = new wav.Encoder({
+            sampleRate: audioBuffer.sampleRate,
+            channels: 1,
+            bitDepth: 16,
+        });
+
+        const chunks: Buffer[] = [];
+        encoder.on('data', (chunk) => chunks.push(chunk));
+        encoder.on('end', () => {
+            const wavBlob = new Blob(chunks, { type: 'audio/wav' });
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(wavBlob);
+        });
+        
+        encoder.end(pcmBuffer);
+    });
 };
 
 export function NewMemoryForm({ userId }: { userId: string }) {
@@ -159,7 +186,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
         setIsProcessingAI(true);
         try {
-          const audioDataUri = await blobToDataUri(blob);
+          const audioDataUri = await webmToWavDataUri(blob);
           const { transcription } = await transcribeAudio({ audioDataUri });
           form.setValue('transcription', transcription);
 
@@ -169,6 +196,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           form.setValue('tags', tags);
 
         } catch (error) {
+          console.error("AI Processing Error:", error);
           toast({
             variant: 'destructive',
             title: 'AI Processing Failed',
