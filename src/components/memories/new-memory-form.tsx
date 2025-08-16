@@ -68,12 +68,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [tagInput, setTagInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -125,19 +124,25 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
 
-        setIsTranscribing(true);
+        setIsProcessingAI(true);
         try {
           const audioDataUri = await blobToDataUri(blob);
-          const result = await transcribeAudio({ audioDataUri });
-          form.setValue('transcription', result.transcription);
+          const { transcription } = await transcribeAudio({ audioDataUri });
+          form.setValue('transcription', transcription);
+
+          const { title, summary, tags } = await generateMemoryTitleSummaryTags({ transcription });
+          form.setValue('title', title);
+          form.setValue('summary', summary);
+          form.setValue('tags', tags);
+
         } catch (error) {
           toast({
             variant: 'destructive',
-            title: 'Transcription Failed',
-            description: 'Could not transcribe audio. Please try again.',
+            title: 'AI Processing Failed',
+            description: 'Could not process audio. Please try again.',
           });
         } finally {
-          setIsTranscribing(false);
+          setIsProcessingAI(false);
         }
       };
       mediaRecorderRef.current.start();
@@ -180,7 +185,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       });
       return;
     }
-    setIsGenerating(true);
+    setIsProcessingAI(true);
     try {
       const result = await generateMemoryTitleSummaryTags({ transcription });
       form.setValue('title', result.title);
@@ -193,7 +198,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         description: 'Could not generate content. Please try again.',
       });
     } finally {
-      setIsGenerating(false);
+      setIsProcessingAI(false);
     }
   };
   
@@ -377,7 +382,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
-              <Button type="button" onClick={isRecording ? stopRecording : startRecording} className={`w-24 ${isRecording ? 'bg-destructive hover:bg-destructive/90' : ''}`} disabled={isTranscribing}>
+              <Button type="button" onClick={isRecording ? stopRecording : startRecording} className={`w-24 ${isRecording ? 'bg-destructive hover:bg-destructive/90' : ''}`} disabled={isProcessingAI}>
                 {isRecording ? <Square className="mr-2 h-4 w-4"/> : <Mic className="mr-2 h-4 w-4"/>}
                 {isRecording ? 'Stop' : 'Record'}
               </Button>
@@ -387,13 +392,13 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   <span>{format(recordingTime * 1000, 'mm:ss')}</span>
                 </div>
               )}
-               {isTranscribing && (
+               {isProcessingAI && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Transcribing...</span>
+                  <span>Processing...</span>
                 </div>
               )}
-              {audioBlob && !isRecording && !isTranscribing && (
+              {audioBlob && !isRecording && !isProcessingAI && (
                 <audio controls src={URL.createObjectURL(audioBlob)} className="h-10"></audio>
               )}
             </div>
@@ -405,7 +410,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                 <FormItem>
                   <FormLabel className="flex items-center gap-2"><FileText className="w-5 h-5"/> Transcription</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Your transcription will appear here..." {...field} rows={5} disabled={isTranscribing} />
+                    <Textarea placeholder="Your transcription will appear here..." {...field} rows={5} disabled={isProcessingAI} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -418,8 +423,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle>AI Generated Content</CardTitle>
-                     <Button type="button" onClick={handleGenerateContent} disabled={isGenerating || !transcription}>
-                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
+                     <Button type="button" onClick={handleGenerateContent} disabled={isProcessingAI || !transcription}>
+                        {isProcessingAI ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Wand2 className="mr-2 h-4 w-4"/>}
                         Generate
                     </Button>
                 </div>
@@ -535,7 +540,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={isUploading || isTranscribing}>
+          <Button type="submit" size="lg" disabled={isUploading || isProcessingAI}>
             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
             Save Memory
           </Button>
