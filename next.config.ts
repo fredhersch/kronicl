@@ -29,16 +29,19 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    return [
-      {
-        source: '/__init.js',
-        destination: `http://127.0.0.1:4000/__init.js`,
-      },
-      {
-        source: '/flows/:path*',
-        destination: `http://127.0.0.1:4000/flows/:path*`,
-      },
-    ];
+    if (process.env.NODE_ENV === 'development') {
+        return [
+        {
+            source: '/__init.js',
+            destination: `http://127.0.0.1:4000/__init.js`,
+        },
+        {
+            source: '/flows/:path*',
+            destination: `http://127.0.0.1:4000/flows/:path*`,
+        },
+        ];
+    }
+    return [];
   },
 };
 
