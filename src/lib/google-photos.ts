@@ -1,6 +1,6 @@
 'use server';
 
-import { auth as adminAuth, initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
 import { google } from 'googleapis';
@@ -16,7 +16,7 @@ const initAdmin = (): App => {
   }
 
   return initializeApp({
-    credential: adminAuth.cert(JSON.parse(serviceAccount)),
+    credential: credential.cert(JSON.parse(serviceAccount)),
   });
 };
 
