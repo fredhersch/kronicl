@@ -15,7 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -46,7 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
+  const checkGooglePhotosConnection = useCallback(async (uid: string) => {
+    const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
+    const connected = tokenDoc.exists();
+    setIsPhotosConnected(connected);
+    return connected;
+  }, []);
+
   useEffect(() => {
+    // This effect should only run once on mount
     try {
         initializeAuth(auth.app, { persistence: indexedDBLocalPersistence });
     } catch (e: any) {
@@ -55,12 +63,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-        handleUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
+            setUser(user as User);
             checkGooglePhotosConnection(user.uid);
+            const idToken = await user.getIdToken();
+            // This is a fire-and-forget call to set the session cookie
+            fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${idToken}` },
+            }).catch(err => console.error("Session cookie creation failed:", err));
         } else {
+            setUser(null);
             setIsPhotosConnected(false);
+            // This is a fire-and-forget call to clear the session cookie
+            fetch('/api/auth/session', { method: 'DELETE' }).catch(err => console.error("Session cookie deletion failed:", err));
         }
         setLoading(false);
     });
@@ -68,37 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const checkGooglePhotosConnection = async (uid: string) => {
-    const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
-    setIsPhotosConnected(tokenDoc.exists());
-  };
-
-  const handleUser = useCallback(async (rawUser: FirebaseUser | null) => {
-    if (rawUser) {
-        setUser(rawUser as User);
-        const idToken = await rawUser.getIdToken();
-        try {
-            await fetch('/api/auth/session', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${idToken}`,
-                },
-            });
-        } catch (error) {
-            console.error("Failed to create session cookie:", error);
-        }
-    } else {
-        setUser(null);
-        await fetch('/api/auth/session', { method: 'DELETE' });
-    }
-  }, []);
   
   const signInWithGoogle = async () => {
     setLoading(true);
     try {
-        const result = await signInWithPopup(auth, googleProvider);
-        await handleUser(result.user);
+        await signInWithPopup(auth, googleProvider);
         router.push('/');
     } catch(error: any) {
         console.error("Google sign in failed:", error);
@@ -115,8 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithEmail = async (email: string, password: string) => {
     setLoading(true);
     try {
-        const { user } = await signInWithEmailAndPassword(auth, email, password);
-        await handleUser(user);
+        await signInWithEmailAndPassword(auth, email, password);
         router.push('/');
     } catch (error: any) {
         console.error("Email/password sign in failed:", error);
@@ -133,11 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmail = async (email: string, password: string) => {
     setLoading(true);
     try {
-        const { user } = await createUserWithEmailAndPassword(auth, email, password);
+        const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
         const displayName = email.split('@')[0];
-        await updateProfile(user, { displayName });
-        
-        await handleUser(user);
+        await updateProfile(newUser, { displayName });
+        setUser({ ...newUser, displayName } as User); // Update local state immediately
         router.push('/');
     } catch (error: any) {
         console.error("Sign up failed:", error);
@@ -154,7 +143,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
-      await handleUser(null);
       router.push('/login');
     } catch (error) {
       console.error("Sign out failed:", error);

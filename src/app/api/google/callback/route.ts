@@ -1,7 +1,8 @@
+'use server';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getOAuth2Client } from '@/lib/google-auth';
-import { db, initAdmin } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 
 const OAUTH_STATE_COOKIE = 'gcp_oauth_state';
@@ -26,12 +27,12 @@ export async function GET(req: NextRequest) {
   }
   const sessionCookie = cookies().get('__session')?.value;
   if (!sessionCookie) {
+    // This should ideally redirect to login, but for simplicity, redirecting to profile with error.
     return NextResponse.redirect(new URL('/profile?status=error&message=Authentication+required.', req.url));
   }
 
   try {
     // --- Verify Firebase session and get user UID ---
-    initAdmin();
     const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
     const uid = decodedToken.uid;
     
@@ -61,6 +62,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('Callback handling failed:', error);
+    // Redirect with a generic error
     return NextResponse.redirect(new URL('/profile?status=error&message=An+unexpected+error+occurred.', req.url));
   }
 }

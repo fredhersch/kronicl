@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { cookies } from 'next/headers';
 import { getAuth } from 'firebase-admin/auth';
-import { db, initAdmin } from './firebase-admin';
+import { db } from './firebase-admin';
 import type { OAuth2Client } from 'google-auth-library';
 
 export function getOAuth2Client(): OAuth2Client {
@@ -25,7 +25,6 @@ export async function getAuthenticatedClient(): Promise<OAuth2Client | null> {
   }
 
   try {
-    initAdmin();
     const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
     const uid = decodedToken.uid;
     

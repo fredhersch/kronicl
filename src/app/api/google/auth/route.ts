@@ -1,3 +1,4 @@
+'use server';
 import { NextRequest, NextResponse } from 'next/server';
 import { getOAuth2Client } from '@/lib/google-auth';
 import { cookies } from 'next/headers';
