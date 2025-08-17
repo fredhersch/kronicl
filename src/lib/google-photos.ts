@@ -1,7 +1,8 @@
 'use server';
 
-import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { credential } from 'firebase-admin';
 import { cookies } from 'next/headers';
 import { google } from 'googleapis';
 
