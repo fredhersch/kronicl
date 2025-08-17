@@ -102,7 +102,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   });
   
   const fetchLocationName = async (lat: number, lng: number) => {
-      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY') {
+      if (!googleMapsApiKey || googleMapsApiKey.includes('YOUR_API_KEY')) {
         console.warn("Google Maps API Key is missing.");
         form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         return;
@@ -159,7 +159,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
 
-    if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY') {
+    if (!googleMapsApiKey || googleMapsApiKey.includes('YOUR_API_KEY')) {
       toast({
         variant: "destructive",
         title: "Missing API Key",
