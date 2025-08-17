@@ -8,8 +8,6 @@ import {
     User as FirebaseUser, 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
-    linkWithPopup,
-    unlink,
     GoogleAuthProvider,
     updateProfile,
     initializeAuth,
