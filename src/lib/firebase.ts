@@ -24,6 +24,9 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/photoslibrary.readonly');
+googleProvider.setCustomParameters({
+    prompt: 'select_account'
+});
 
 
 export { app, auth, db, storage, googleProvider };
