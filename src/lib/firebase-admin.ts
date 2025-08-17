@@ -9,6 +9,8 @@ if (!getApps().length) {
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (serviceAccount) {
     try {
+      // The service account key is expected to be a stringified JSON object.
+      // We need to parse it before passing it to the credential.cert method.
       const serviceAccountJson = JSON.parse(serviceAccount);
       adminApp = initializeApp({
         credential: credential.cert(serviceAccountJson),

@@ -101,7 +101,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   });
   
   const fetchLocationName = async (lat: number, lng: number) => {
-      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
+      if (!googleMapsApiKey) {
         form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         return;
       }
@@ -157,11 +157,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
 
-    if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
+    if (!googleMapsApiKey) {
       toast({
         variant: "destructive",
         title: "Missing API Key",
-        description: "Please add your Google Maps API key to the .env file.",
+        description: "Please add your Google Maps API key to the .env.local file.",
       });
       return;
     }

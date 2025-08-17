@@ -62,12 +62,12 @@ const render = (status: Status): ReactNode => {
 export function Map({ latitude, longitude, apiKey }: MapProps) {
   const center = { lat: latitude, lng: longitude };
 
-  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+  if (!apiKey) {
     return (
       <div className="w-full h-48 bg-muted rounded-lg overflow-hidden border flex flex-col items-center justify-center text-center p-4">
         <MapPin className="w-8 h-8 text-primary" />
         <p className="text-xs text-muted-foreground mt-2">
-          Add NEXT_PUBLIC_FIREBASE_API_KEY to your .env file to display the map.
+          Add NEXT_PUBLIC_FIREBASE_API_KEY to your .env.local file to display the map.
         </p>
       </div>
     );
