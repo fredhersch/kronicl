@@ -11,7 +11,8 @@ import {
     signInWithEmailAndPassword,
     linkWithRedirect,
     unlink,
-    GoogleAuthProvider
+    GoogleAuthProvider,
+    updateProfile
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
@@ -133,6 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
         const { user } = await createUserWithEmailAndPassword(auth, email, password);
+        // Set a default display name from the email
+        const displayName = email.split('@')[0];
+        await updateProfile(user, { displayName });
+        
         await handleUser(user);
         router.push('/');
     } catch (error: any) {
