@@ -46,6 +46,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
 import Link from 'next/link';
+import { firebaseConfig } from '@/lib/firebase-client';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -86,7 +87,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const googleMapsApiKey = firebaseConfig.apiKey;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -101,7 +102,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   });
   
   const fetchLocationName = async (lat: number, lng: number) => {
-      if (!googleMapsApiKey) {
+      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY') {
         console.warn("Google Maps API Key is missing.");
         form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         return;
@@ -158,7 +159,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
 
-    if (!googleMapsApiKey) {
+    if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY') {
       toast({
         variant: "destructive",
         title: "Missing API Key",

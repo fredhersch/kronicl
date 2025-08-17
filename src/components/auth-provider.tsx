@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [storage, setStorage] = useState<FirebaseStorage | null>(null);
 
   useEffect(() => {
+    // This code now runs only on the client, after the component mounts.
     const authInstance = getAuth(app);
     const dbInstance = getFirestore(app);
     const storageInstance = getStorage(app);
