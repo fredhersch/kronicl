@@ -59,14 +59,12 @@ export function LoginForm() {
     signInWithEmail(data.email, data.password);
   };
   
-  const handleSignUp = () => {
-    const data = form.getValues();
-    const result = formSchema.safeParse(data);
-    if (result.success) {
+  const handleSignUp = async () => {
+    // Manually trigger validation to show errors if needed
+    const isValid = await form.trigger();
+    if (isValid) {
+      const data = form.getValues();
       signUpWithEmail(data.email, data.password);
-    } else {
-        // Manually trigger validation to show errors
-        form.trigger();
     }
   };
 
