@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { generateMemoryTitleSummaryTags } from '@/ai/flows/generate-memory-title-summary-tags';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -39,10 +40,12 @@ import {
   Loader2,
   Cloud,
   Search,
+  Link as LinkIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
+import Link from 'next/link';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -66,6 +69,7 @@ const blobToDataUri = (blob: Blob): Promise<string> => {
 
 export function NewMemoryForm({ userId }: { userId: string }) {
   const router = useRouter();
+  const { user, isGooglePhotosConnected } = useAuth();
   const { toast } = useToast();
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -476,12 +480,27 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                             <input type="file" multiple accept="image/*,video/*" className="sr-only" onChange={handleFileChange} />
                          </label>
                     </div>
-                    <Button type="button" variant="outline" onClick={() => setIsPickerOpen(true)}><Cloud className="mr-2 h-4 w-4"/> Select from Google Photos</Button>
-                    <GooglePhotosPicker
-                        open={isPickerOpen}
-                        onOpenChange={setIsPickerOpen}
-                        onSelect={addMediaFiles}
-                    />
+
+                    {isGooglePhotosConnected() ? (
+                        <>
+                            <Button type="button" variant="outline" onClick={() => setIsPickerOpen(true)}><Cloud className="mr-2 h-4 w-4"/> Select from Google Photos</Button>
+                            <GooglePhotosPicker
+                                open={isPickerOpen}
+                                onOpenChange={setIsPickerOpen}
+                                onSelect={addMediaFiles}
+                            />
+                        </>
+                    ) : (
+                        <div className="p-4 bg-muted/50 rounded-lg flex flex-col items-center text-center gap-2">
+                             <p className="text-sm text-muted-foreground">Connect your Google account to select photos directly from your library.</p>
+                             <Link href="/profile">
+                                <Button variant="secondary">
+                                    <LinkIcon className="mr-2 h-4 w-4" />
+                                    Connect to Google Photos
+                                </Button>
+                             </Link>
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>

@@ -47,7 +47,7 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative w-10 h-10 rounded-full">
               <Avatar>
-                <AvatarImage src={user?.photoURL} alt={user?.displayName ?? 'User'} />
+                <AvatarImage src={user?.photoURL ?? undefined} alt={user?.displayName ?? 'User'} />
                 <AvatarFallback>{user?.displayName?.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>
@@ -55,10 +55,12 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel>{user?.displayName}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <UserIcon className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
+            <Link href="/profile">
+                <DropdownMenuItem>
+                <UserIcon className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+                </DropdownMenuItem>
+            </Link>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut}>
               <LogOut className="mr-2 h-4 w-4" />
