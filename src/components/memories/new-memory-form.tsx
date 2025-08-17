@@ -9,7 +9,7 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { db, storage } from '@/lib/firebase';
+import { db, storage, firebaseConfig } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -86,7 +86,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const googleMapsApiKey = firebaseConfig.apiKey;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -101,7 +101,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   });
   
   const fetchLocationName = async (lat: number, lng: number) => {
-      if (!googleMapsApiKey) {
+      if (!googleMapsApiKey || googleMapsApiKey.startsWith('YOUR_')) {
         form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         return;
       }
@@ -157,11 +157,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
 
-    if (!googleMapsApiKey) {
+    if (!googleMapsApiKey || googleMapsApiKey.startsWith('YOUR_')) {
       toast({
         variant: "destructive",
         title: "Missing API Key",
-        description: "Please add your Google Maps API key to the .env.local file.",
+        description: "Google Maps API key is missing or invalid.",
       });
       return;
     }
@@ -662,7 +662,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     </FormItem>
                   )}
                 />
-                <Map latitude={latitude} longitude={longitude} apiKey={googleMapsApiKey} />
+                <Map latitude={latitude} longitude={longitude} />
             </div>
           </CardContent>
         </Card>

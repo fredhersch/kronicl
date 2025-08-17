@@ -22,8 +22,6 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
         neutral: 'neutral',
     } as const;
 
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <Card>
@@ -142,7 +140,7 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
                 </div>
               </div>
                <div className="mt-4">
-                 <Map latitude={memory.latitude} longitude={memory.longitude} apiKey={googleMapsApiKey} />
+                 <Map latitude={memory.latitude} longitude={memory.longitude} />
                </div>
             </CardContent>
           </Card>

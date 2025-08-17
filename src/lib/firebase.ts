@@ -5,12 +5,12 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  projectId: 'memorylane-ghzrx',
+  appId: '1:992326242121:web:964e354dfdc2db22edd498',
+  storageBucket: 'memorylane-ghzrx.appspot.com',
+  apiKey: 'AIzaSyALVOV4J9E3hDujJPL95tGaQv_b122gGVI',
+  authDomain: 'memorylane-ghzrx.firebaseapp.com',
+  messagingSenderId: '992326242121',
 };
 
 
@@ -27,4 +27,4 @@ googleProvider.setCustomParameters({
 });
 
 
-export { app, auth, db, storage, googleProvider };
+export { app, auth, db, storage, googleProvider, firebaseConfig };

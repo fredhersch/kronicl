@@ -3,11 +3,11 @@ import { useRef, useEffect, ReactNode } from 'react';
 import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { MapPin } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
+import { firebaseConfig } from '@/lib/firebase';
 
 interface MapProps {
   latitude: number;
   longitude: number;
-  apiKey?: string;
 }
 
 interface InteractiveMapProps {
@@ -59,15 +59,16 @@ const render = (status: Status): ReactNode => {
   }
 };
 
-export function Map({ latitude, longitude, apiKey }: MapProps) {
+export function Map({ latitude, longitude }: MapProps) {
   const center = { lat: latitude, lng: longitude };
+  const apiKey = firebaseConfig.apiKey;
 
-  if (!apiKey) {
+  if (!apiKey || apiKey.startsWith('YOUR_')) {
     return (
       <div className="w-full h-48 bg-muted rounded-lg overflow-hidden border flex flex-col items-center justify-center text-center p-4">
         <MapPin className="w-8 h-8 text-primary" />
         <p className="text-xs text-muted-foreground mt-2">
-          Add NEXT_PUBLIC_FIREBASE_API_KEY to your .env.local file to display the map.
+          Google Maps API Key is missing or invalid.
         </p>
       </div>
     );
