@@ -36,6 +36,7 @@ import {
   Video,
   Loader2,
   Cloud,
+  Search,
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -84,38 +85,45 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       title: '',
       summary: '',
       date: new Date(),
-      location: 'New York, NY',
+      location: '',
       transcription: '',
       tags: [],
     },
   });
-
-  useEffect(() => {
-    const fetchLocation = async (latitude: number, longitude: number) => {
+  
+  const fetchLocationName = async (lat: number, lng: number) => {
       if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
-        form.setValue('location', `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+        form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         return;
       }
       try {
-        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleMapsApiKey}`);
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleMapsApiKey}`);
         const data = await response.json();
         if (data.results && data.results.length > 0) {
           form.setValue('location', data.results[0].formatted_address);
         } else {
-          form.setValue('location', `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+          form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         }
       } catch (error) {
         console.error('Reverse geocoding failed', error);
-        form.setValue('location', `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`);
+        form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
+        toast({
+          variant: "destructive",
+          title: "Could not fetch location name",
+          description: "Please check your API key and network connection.",
+        });
       }
-    };
-    
+  };
+
+  useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLatitude(position.coords.latitude);
-          setLongitude(position.coords.longitude);
-          fetchLocation(position.coords.latitude, position.coords.longitude);
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setLatitude(lat);
+          setLongitude(lng);
+          fetchLocationName(lat, lng);
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -124,13 +132,49 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             title: "Could not get location",
             description: "Using default location. Please ensure location services are enabled.",
           });
-          fetchLocation(latitude, longitude); // Use default location
+          fetchLocationName(latitude, longitude); // Use default location
         }
       );
     } else {
-        fetchLocation(latitude, longitude); // Use default location if geolocation is not supported
+        fetchLocationName(latitude, longitude); // Use default location if geolocation is not supported
     }
-  }, [form, toast, latitude, longitude, googleMapsApiKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleLocationSearch = async () => {
+    const locationQuery = form.getValues('location');
+    if (!locationQuery) {
+        toast({ variant: 'destructive', title: 'No location entered', description: 'Please type an address to search.' });
+        return;
+    }
+
+    if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
+      toast({
+        variant: "destructive",
+        title: "Missing API Key",
+        description: "Please add your Google Maps API key to the .env file.",
+      });
+      return;
+    }
+
+    try {
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationQuery)}&key=${googleMapsApiKey}`);
+        const data = await response.json();
+
+        if (data.results && data.results.length > 0) {
+            const { lat, lng } = data.results[0].geometry.location;
+            setLatitude(lat);
+            setLongitude(lng);
+            form.setValue('location', data.results[0].formatted_address);
+        } else {
+            toast({ variant: 'destructive', title: 'Location not found', description: 'Could not find the specified location. Please try again.' });
+        }
+    } catch (error) {
+        console.error("Geocoding failed", error);
+        toast({ variant: 'destructive', title: 'Location search failed', description: 'There was an error searching for the location.' });
+    }
+  };
+
 
   const tags = form.watch('tags');
 
@@ -568,9 +612,15 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   render={({ field }) => (
                     <FormItem>
                        <FormLabel className="flex items-center gap-2 font-medium"><MapPin className="w-5 h-5"/> Location</FormLabel>
-                       <FormControl>
-                         <Input placeholder="Search for a location" {...field} />
-                      </FormControl>
+                        <div className="flex items-center gap-2">
+                           <FormControl>
+                             <Input placeholder="Search for a location" {...field} />
+                          </FormControl>
+                           <Button type="button" size="icon" variant="outline" onClick={handleLocationSearch}>
+                            <Search className="w-4 h-4" />
+                            <span className="sr-only">Search Location</span>
+                           </Button>
+                       </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -590,3 +640,5 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     </Form>
   );
 }
+
+    
