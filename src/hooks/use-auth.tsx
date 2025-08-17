@@ -46,14 +46,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (rawUser) {
         setUser(rawUser as User);
         const idToken = await rawUser.getIdToken();
-        await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${idToken}`,
-            },
-        });
+        // This check is to prevent fetch on initial load before user interaction
+        if (idToken) {
+            try {
+                await fetch('/api/auth/session', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${idToken}`,
+                    },
+                });
+            } catch (error) {
+                console.error("Failed to create session cookie:", error);
+            }
+        }
     } else {
         setUser(null);
+        await fetch('/api/auth/session', { method: 'DELETE' });
     }
     setLoading(false);
   }, []);
@@ -65,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((result) => {
         if (result) {
             toast({
-                title: 'Account linked',
+                title: 'Account Linked!',
                 description: 'Your Google account has been successfully linked.',
             });
             handleUser(result.user);
@@ -76,14 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error.code === 'auth/credential-already-in-use') {
              toast({
                 variant: 'destructive',
-                title: 'Account linking failed',
+                title: 'Account Linking Failed',
                 description: 'This Google account is already associated with another user.',
             });
         } else {
             toast({
                 variant: 'destructive',
-                title: 'Sign In Failed',
-                description: 'Could not complete sign in. Please try again.',
+                title: 'Connection Failed',
+                description: 'Could not complete the connection. Please try again.',
             });
         }
       });
@@ -99,7 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithEmail = async (email: string, password: string) => {
     setLoading(true);
     try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const { user } = await signInWithEmailAndPassword(auth, email, password);
+        await handleUser(user);
         router.push('/');
     } catch (error: any) {
         console.error("Email/password sign in failed:", error);
@@ -115,7 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmail = async (email: string, password: string) => {
     setLoading(true);
     try {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const { user } = await createUserWithEmailAndPassword(auth, email, password);
+        await handleUser(user);
         router.push('/');
     } catch (error: any) {
         console.error("Sign up failed:", error);
@@ -131,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
-      await fetch('/api/auth/session', { method: 'DELETE' });
+      await handleUser(null);
       router.push('/login');
     } catch (error) {
       console.error("Sign out failed:", error);
@@ -161,13 +171,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!auth.currentUser) return;
     try {
         const googleProviderId = GoogleAuthProvider.PROVIDER_ID;
-        await unlink(auth.currentUser, googleProviderId);
-        toast({
-            title: 'Account unlinked',
-            description: 'Your Google account has been unlinked.',
-        });
-        // Manually trigger a user state update
-        handleUser(auth.currentUser);
+        // The providerData array is guaranteed to exist for any user, even if empty.
+        // We filter to find the Google provider.
+        const googleProviderInfo = auth.currentUser.providerData.find(p => p.providerId === googleProviderId);
+
+        if (googleProviderInfo) {
+            await unlink(auth.currentUser, googleProviderId);
+            toast({
+                title: 'Account unlinked',
+                description: 'Your Google account has been unlinked.',
+            });
+            // Manually trigger a user state update by re-fetching the user from auth
+            await auth.currentUser.reload();
+            handleUser(auth.currentUser);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Not Connected',
+                description: 'Your Google account is not currently connected.',
+            });
+        }
     } catch (error: any) {
         console.error("Error unlinking Google Account", error);
         toast({
