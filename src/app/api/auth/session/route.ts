@@ -2,8 +2,8 @@
 import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-// By importing db, we ensure firebase-admin is initialized before we use it.
-import { db } from '@/lib/firebase-admin';
+// By importing from firebase-admin, we ensure it is initialized.
+import '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
     const authorization = request.headers.get('Authorization');
