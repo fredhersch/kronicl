@@ -1,12 +1,13 @@
+
 'use client';
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-    onAuthStateChanged, 
-    signInWithPopup, 
-    signOut as firebaseSignOut, 
-    User as FirebaseUser, 
-    createUserWithEmailAndPassword, 
+import {
+    onAuthStateChanged,
+    signInWithPopup,
+    signOut as firebaseSignOut,
+    User as FirebaseUser,
+    createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     GoogleAuthProvider,
     updateProfile,
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPhotosConnected, setIsPhotosConnected] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  
+
   const auth = firebaseAuth;
 
   const checkGooglePhotosConnection = useCallback(async (uid: string) => {
@@ -58,16 +59,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (user) {
             setUser(user as User);
             checkGooglePhotosConnection(user.uid);
+            // Get the ID token and send it to the server to create a session cookie.
             const idToken = await user.getIdToken();
-            // This is a fire-and-forget call to set the session cookie
             fetch('/api/auth/session', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${idToken}` },
+                headers: {
+                    'Authorization': `Bearer ${idToken}`,
+                },
             }).catch(err => console.error("Session cookie creation failed:", err));
         } else {
             setUser(null);
             setIsPhotosConnected(false);
-            // This is a fire-and-forget call to clear the session cookie
+            // Clear the session cookie on sign out.
             fetch('/api/auth/session', { method: 'DELETE' }).catch(err => console.error("Session cookie deletion failed:", err));
         }
         setLoading(false);
@@ -76,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
   const signInWithGoogle = async () => {
     setLoading(true);
     try {

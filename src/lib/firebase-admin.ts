@@ -5,14 +5,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 let adminApp: App;
 
 function getAdminApp(): App {
-  if (adminApp) {
-    return adminApp;
-  }
-
-  const apps = getApps();
-  if (apps.length > 0) {
-    adminApp = apps[0];
-    return adminApp;
+  if (getApps().length > 0) {
+    return getApps()[0];
   }
 
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
