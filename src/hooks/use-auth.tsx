@@ -11,11 +11,12 @@ import {
     GoogleAuthProvider,
     updateProfile,
     initializeAuth,
-    indexedDBLocalPersistence
+    indexedDBLocalPersistence,
+    getAuth
 } from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
+import { app, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
-import { doc, getDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 
@@ -45,6 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPhotosConnected, setIsPhotosConnected] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  
+  const auth = getAuth(app);
 
   const checkGooglePhotosConnection = useCallback(async (uid: string) => {
     const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
@@ -56,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // This effect should only run once on mount
     try {
-        initializeAuth(auth.app, { persistence: indexedDBLocalPersistence });
+        initializeAuth(app, { persistence: indexedDBLocalPersistence });
     } catch (e: any) {
         if (e.code !== 'auth/already-initialized') {
             console.error("Firebase auth initialization error", e);
