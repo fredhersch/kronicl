@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await getRedirectResult(auth);
         if (result) {
           await handleUser(result.user);
+          // Add a short delay to ensure state propagation before redirect
           setTimeout(() => {
             if (isLinkingFlow) {
               const message = 'Your Google account has been successfully linked.';
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else {
               router.push('/');
             }
-          }, 100);
+          }, 100); 
         }
       } catch (error: any) {
         console.error("Error processing redirect result:", error);
@@ -84,10 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isLinkingFlow) {
           router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
           setIsLinkingFlow(false);
-        } else {
-          // It's possible for this to fire on login page if there's a stored redirect error.
-          // Only show toast if it's a manual login attempt, not on page load.
-          // For now, logging to console is safer than showing a confusing toast on load.
         }
       }
 
@@ -139,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast({
             variant: 'destructive',
             title: 'Sign In Failed',
-            description: error.message || 'Invalid email or password.',
+            description: 'Invalid email or password.',
         });
         setLoading(false);
     }
