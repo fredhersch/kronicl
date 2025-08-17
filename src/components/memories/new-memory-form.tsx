@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { generateMemoryTitleSummaryTags } from '@/ai/flows/generate-memory-title-summary-tags';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
+import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -40,6 +41,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
+import { Memory } from '@/lib/types';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -76,6 +78,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
+  const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
   
   const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
@@ -226,10 +229,15 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           const { transcription } = await transcribeAudio({ audioDataUri });
           form.setValue('transcription', transcription);
 
-          const { title, summary, tags } = await generateMemoryTitleSummaryTags({ transcription });
+          const [{ title, summary, tags }, { sentiment }] = await Promise.all([
+             generateMemoryTitleSummaryTags({ transcription }),
+             analyzeSentiment({ transcription })
+          ]);
+          
           form.setValue('title', title);
           form.setValue('summary', summary);
           form.setValue('tags', tags);
+          setSentiment(sentiment);
 
         } catch (error) {
           console.error("AI Processing Error:", error);
@@ -391,7 +399,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             createdAt: serverTimestamp(),
             latitude: latitude,
             longitude: longitude,
-            sentiment: 'neutral',
+            sentiment: sentiment,
         });
 
         toast({
