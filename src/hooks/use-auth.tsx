@@ -32,13 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     
     // This is the primary listener for authentication state changes.
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (isMounted) {
         setUser(currentUser as User);
-        setLoading(false);
         if (currentUser) {
+           const idToken = await currentUser.getIdToken();
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                },
+            });
           router.push('/');
         }
+        setLoading(false);
       }
     });
 
@@ -109,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
+      await fetch('/api/auth/session', { method: 'DELETE' });
       router.push('/login');
     } catch (error) {
       console.error("Sign out failed:", error);
