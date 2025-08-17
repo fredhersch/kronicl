@@ -6,18 +6,19 @@ let adminApp: App;
 
 function getAdminApp(): App {
   if (getApps().length > 0) {
-    return getApps()[0];
+    adminApp = getApps()[0];
+    return adminApp;
   }
 
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccount) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set. The application will not work correctly.');
+  const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!serviceAccountString) {
+    throw new Error('The FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. The application will not work correctly.');
   }
 
   try {
-    const serviceAccountJson = JSON.parse(serviceAccount);
+    const serviceAccount = JSON.parse(serviceAccountString);
     adminApp = initializeApp({
-      credential: credential.cert(serviceAccountJson),
+      credential: credential.cert(serviceAccount),
     });
     return adminApp;
   } catch (e: any) {

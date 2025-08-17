@@ -61,12 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             checkGooglePhotosConnection(user.uid);
             // Get the ID token and send it to the server to create a session cookie.
             const idToken = await user.getIdToken();
-            fetch('/api/auth/session', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${idToken}`,
-                },
-            }).catch(err => console.error("Session cookie creation failed:", err));
+            try {
+                await fetch('/api/auth/session', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                });
+            } catch (err) {
+                console.error("Session cookie creation failed:", err)
+            }
         } else {
             setUser(null);
             setIsPhotosConnected(false);
@@ -120,7 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
         const displayName = email.split('@')[0];
         await updateProfile(newUser, { displayName });
-        setUser({ ...newUser, displayName } as User); // Update local state immediately
+        // After creating user and updating profile, we need to make sure our local state reflects this
+        const auth = getAuth(app);
+        if (auth.currentUser) {
+            setUser(auth.currentUser as User);
+        }
         router.push('/');
     } catch (error: any) {
         console.error("Sign up failed:", error);
