@@ -12,13 +12,7 @@ const firebaseConfig = {
   };
 
 
-// Function to get the initialized Firebase app, creating it if it doesn't exist.
-// This prevents re-initialization and ensures code only runs on the client.
-function getFirebaseApp(): FirebaseApp {
-    if (getApps().length) {
-        return getApp();
-    }
-    return initializeApp(firebaseConfig);
-}
+// Initialize Firebase
+const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const app = getFirebaseApp();
+export { app };

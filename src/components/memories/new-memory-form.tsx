@@ -10,8 +10,8 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { getFirestore, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Button } from '@/components/ui/button';
@@ -46,11 +46,6 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
 import Link from 'next/link';
-import { app } from '@/lib/firebase-client';
-
-const db = getFirestore(app);
-const storage = getStorage(app);
-
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -74,7 +69,7 @@ const blobToDataUri = (blob: Blob): Promise<string> => {
 
 export function NewMemoryForm({ userId }: { userId: string }) {
   const router = useRouter();
-  const { user, isGooglePhotosConnected } = useAuth();
+  const { isGooglePhotosConnected, db, storage } = useAuth();
   const { toast } = useToast();
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -311,6 +306,14 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   };
   
   const onSubmit = async (data: FormValues) => {
+    if (!db || !storage) {
+        toast({
+            variant: 'destructive',
+            title: 'Services not available',
+            description: 'Firebase is not ready. Please wait a moment and try again.',
+        });
+        return;
+    }
     if (mediaFiles.length === 0) {
         toast({
             variant: 'destructive',

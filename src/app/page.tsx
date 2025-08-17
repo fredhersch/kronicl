@@ -1,18 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Header } from '@/components/header';
 import { MemoryList } from '@/components/memories/memory-list';
 import type { Memory } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { app } from '@/lib/firebase-client';
-
-const db = getFirestore(app);
 
 export default function Dashboard() {
-  const { user, loading } = useAuth();
+  const { user, loading, db } = useAuth();
   const router = useRouter();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [filteredMemories, setFilteredMemories] = useState<Memory[]>([]);
@@ -25,7 +22,7 @@ export default function Dashboard() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
+    if (user && db) {
       setDataLoading(true);
       const q = query(collection(db, 'memories'), where('userId', '==', user.uid));
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -40,10 +37,13 @@ export default function Dashboard() {
         setMemories(userMemories);
         setFilteredMemories(userMemories);
         setDataLoading(false);
+      }, (error) => {
+        console.error("Error fetching memories: ", error);
+        setDataLoading(false);
       });
       return () => unsubscribe();
     }
-  }, [user]);
+  }, [user, db]);
 
   const handleSearch = (query: string) => {
     const lowerCaseQuery = query.toLowerCase();

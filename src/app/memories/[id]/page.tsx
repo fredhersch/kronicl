@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { Memory } from '@/lib/types';
 import { MemoryDetail } from '@/components/memories/memory-detail';
 import { Button } from '@/components/ui/button';
@@ -8,18 +8,17 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
-import { app } from '@/lib/firebase-client';
-
-const db = getFirestore(app);
+import { useAuth } from '@/hooks/use-auth';
 
 export default function MemoryDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [memory, setMemory] = useState<Memory | null>(null);
   const [loading, setLoading] = useState(true);
+  const { db } = useAuth();
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !db) return;
 
     const fetchMemory = async () => {
       setLoading(true);
@@ -40,7 +39,7 @@ export default function MemoryDetailPage() {
     };
 
     fetchMemory();
-  }, [id]);
+  }, [id, db]);
 
   if (loading) {
     return (

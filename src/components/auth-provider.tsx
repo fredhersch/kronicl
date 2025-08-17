@@ -12,25 +12,17 @@ import {
     signInWithEmailAndPassword,
     GoogleAuthProvider,
     updateProfile,
-    getAuth
+    getAuth,
+    Auth
 } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { app } from '@/lib/firebase-client';
 import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { AuthContext } from '@/hooks/use-auth';
 
-// Initialize Firebase services on the client inside the provider
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/photoslibrary.readonly');
-googleProvider.setCustomParameters({
-    prompt: 'select_account'
-});
-
+// This provider component will handle all the client-side Firebase logic.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,14 +30,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Initialize services inside the component to ensure they only run on the client.
+  const [auth, setAuth] = useState<Auth | null>(null);
+  const [db, setDb] = useState<Firestore | null>(null);
+  const [storage, setStorage] = useState<FirebaseStorage | null>(null);
+
+  useEffect(() => {
+    const authInstance = getAuth(app);
+    const dbInstance = getFirestore(app);
+    const storageInstance = getStorage(app);
+    setAuth(authInstance);
+    setDb(dbInstance);
+    setStorage(storageInstance);
+  }, []);
+
+
   const checkGooglePhotosConnection = useCallback(async (uid: string) => {
+    if (!db) return false;
     const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
     const connected = tokenDoc.exists();
     setIsPhotosConnected(connected);
     return connected;
-  }, []);
+  }, [db]);
 
   useEffect(() => {
+    if (!auth) return; // Don't run auth logic until the auth instance is ready.
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
             const idToken = await user.getIdToken();
@@ -70,10 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [checkGooglePhotosConnection]);
+  }, [auth, checkGooglePhotosConnection]);
 
   const signInWithGoogle = async () => {
+    if (!auth) return;
     setLoading(true);
+    const googleProvider = new GoogleAuthProvider();
+    googleProvider.addScope('https://www.googleapis.com/auth/photoslibrary.readonly');
+    googleProvider.setCustomParameters({ prompt: 'select_account' });
     try {
         await signInWithPopup(auth, googleProvider);
         router.push('/');
@@ -90,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!auth) return;
     setLoading(true);
     try {
         await signInWithEmailAndPassword(auth, email, password);
@@ -107,12 +122,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUpWithEmail = async (email: string, password: string) => {
+    if (!auth) return;
     setLoading(true);
     try {
         const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
         const displayName = email.split('@')[0];
         await updateProfile(newUser, { displayName });
-        setUser(getAuth(app).currentUser);
+        // After signup, Firebase automatically signs the user in.
+        // The onAuthStateChanged listener will handle the user state update.
         router.push('/');
     } catch (error: any) {
         console.error("Sign up failed:", error);
@@ -127,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (!auth) return;
     try {
       await firebaseSignOut(auth);
       router.push('/login');
@@ -145,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const unlinkGoogleAccount = async () => {
-    if (!auth.currentUser) return;
+    if (!auth?.currentUser || !db) return;
     try {
         const tokenDocRef = doc(db, 'google-photos', auth.currentUser.uid);
         await deleteDoc(tokenDocRef);
@@ -178,6 +196,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     linkGoogleAccount,
     unlinkGoogleAccount,
     isGooglePhotosConnected,
+    // We pass the initialized services through the context
+    auth,
+    db,
+    storage,
   };
 
   return (
