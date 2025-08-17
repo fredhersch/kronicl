@@ -39,6 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isLinkingFlow, setIsLinkingFlow] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -70,20 +71,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, handleUser);
 
     getRedirectResult(auth)
-      .then((result) => {
+      .then(async (result) => {
         if (result) {
-            handleUser(result.user);
-            const message = 'Your Google account has been successfully linked.';
-            router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
+            await handleUser(result.user);
+            
+            // Small delay to ensure session is established
+            setTimeout(() => {
+                if (isLinkingFlow) {
+                    const message = 'Your Google account has been successfully linked.';
+                    router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
+                    setIsLinkingFlow(false);
+                } else {
+                    // This was a sign-in operation, redirect to main dashboard
+                    router.push('/');
+                }
+            }, 100);
         }
       })
       .catch((error) => {
         console.error("Error processing redirect result:", error);
-        let message = 'Could not complete the connection. Please try again.';
+        let message = 'Could not complete the authentication. Please try again.';
         if (error.code === 'auth/credential-already-in-use') {
             message = 'This Google account is already associated with another user.';
         }
-        router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
+        // For sign-in errors, redirect to login; for linking errors, redirect to profile
+        if (isLinkingFlow) {
+            router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
+            setIsLinkingFlow(false);
+        } else {
+            router.push(`/login?status=error&message=${encodeURIComponent(message)}`);
+        }
       });
 
     return () => unsubscribe();
@@ -147,9 +164,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const linkGoogleAccount = async () => {
     if (!auth.currentUser) return;
     try {
+        setIsLinkingFlow(true);
         await linkWithRedirect(auth.currentUser, googleProvider);
     } catch (error: any) {
         console.error("Error linking Google Account", error);
+        setIsLinkingFlow(false);
         toast({
             variant: 'destructive',
             title: 'Failed to link account',

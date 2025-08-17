@@ -1,4 +1,6 @@
 'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -35,7 +37,15 @@ type FormValues = z.infer<typeof formSchema>;
 
 
 export function LoginForm() {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
+  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/');
+    }
+  }, [user, loading, router]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

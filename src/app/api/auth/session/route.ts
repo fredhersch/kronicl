@@ -23,7 +23,12 @@ export async function POST(request: NextRequest) {
 
         try {
             const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
-            cookies().set('__session', sessionCookie, { maxAge: expiresIn, httpOnly: true, secure: true });
+            cookies().set('__session', sessionCookie, { 
+                maxAge: expiresIn, 
+                httpOnly: true, 
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax'
+            });
             return NextResponse.json({ status: 'success' });
         } catch (error) {
             console.error('Error creating session cookie:', error);
