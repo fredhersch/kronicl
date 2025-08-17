@@ -17,6 +17,9 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 
 // Define a type for the user object, extending the FirebaseUser
 interface User extends FirebaseUser {}
@@ -41,6 +44,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPhotosConnected, setIsPhotosConnected] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -55,12 +59,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
         handleUser(user);
+        if (user) {
+            checkGooglePhotosConnection(user.uid);
+        } else {
+            setIsPhotosConnected(false);
+        }
         setLoading(false);
     });
 
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const checkGooglePhotosConnection = async (uid: string) => {
+    const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
+    setIsPhotosConnected(tokenDoc.exists());
+  };
 
   const handleUser = useCallback(async (rawUser: FirebaseUser | null) => {
     if (rawUser) {
@@ -154,64 +168,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const linkGoogleAccount = async () => {
-    if (!auth.currentUser) return;
-    try {
-        await linkWithPopup(auth.currentUser, googleProvider);
-        toast({
-            title: 'Account linked',
-            description: 'Your Google account has been successfully linked.',
-        });
-        await auth.currentUser.reload();
-        handleUser(auth.currentUser);
-    } catch (error: any) {
-        console.error("Error linking Google Account", error);
-        let description = 'There was a problem linking your Google Account.';
-        if (error.code === 'auth/credential-already-in-use') {
-            description = 'This Google account is already associated with another user.';
-        }
-        toast({
-            variant: 'destructive',
-            title: 'Failed to link account',
-            description,
-        });
-    }
+  const linkGoogleAccount = () => {
+    // Redirect to our server-side OAuth2 initiation endpoint
+    window.location.href = '/api/google/auth';
   };
 
   const unlinkGoogleAccount = async () => {
     if (!auth.currentUser) return;
     try {
-        const googleProviderId = GoogleAuthProvider.PROVIDER_ID;
-        const googleProviderInfo = auth.currentUser.providerData.find(p => p.providerId === googleProviderId);
-
-        if (googleProviderInfo) {
-            await unlink(auth.currentUser, googleProviderId);
-            toast({
-                title: 'Account unlinked',
-                description: 'Your Google account has been unlinked.',
-            });
-            await auth.currentUser.reload();
-            handleUser(auth.currentUser);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Not Connected',
-                description: 'Your Google account is not currently connected.',
-            });
-        }
-    } catch (error: any) {
+        const tokenDocRef = doc(db, 'google-photos', auth.currentUser.uid);
+        await deleteDoc(tokenDocRef);
+        setIsPhotosConnected(false);
+        toast({
+            title: 'Disconnected from Google Photos',
+            description: 'Your account has been unlinked.',
+        });
+    } catch (error) {
         console.error("Error unlinking Google Account", error);
         toast({
             variant: 'destructive',
             title: 'Failed to unlink account',
-            description: 'There was a problem unlinking your Google Account.',
+            description: 'There was a problem unlinking your account.',
         });
     }
   };
 
   const isGooglePhotosConnected = () => {
-    if (!user) return false;
-    return user.providerData.some(p => p.providerId === GoogleAuthProvider.PROVIDER_ID);
+    return isPhotosConnected;
   };
 
   return (
