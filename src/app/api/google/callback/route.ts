@@ -1,3 +1,4 @@
+
 'use server';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
@@ -16,7 +17,9 @@ export async function GET(req: NextRequest) {
   const savedState = cookies().get(OAUTH_STATE_COOKIE)?.value;
 
   // Clear the state cookie after retrieving it
-  cookies().delete(OAUTH_STATE_COOKIE);
+  const response = NextResponse.redirect(new URL('/profile', req.url));
+  response.cookies.delete(OAUTH_STATE_COOKIE);
+
 
   // --- Security Checks ---
   if (!code) {

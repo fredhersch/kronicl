@@ -1,32 +1,27 @@
+
 import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-let adminApp: App;
-let dbInstance: ReturnType<typeof getFirestore>;
-
-export const initAdmin = () => {
-  if (getApps().length === 0) {
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    if (!serviceAccount) {
-      throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable.');
-    }
-    try {
-      adminApp = initializeApp({
-        credential: credential.cert(JSON.parse(serviceAccount)),
-      });
-      dbInstance = getFirestore(adminApp);
-    } catch (error: any) {
-      console.error('Firebase Admin Initialization Error:', error.message);
-      // Don't re-throw, let the app attempt to continue if possible,
-      // subsequent calls will fail if initialization was truly required.
-    }
+// This new implementation ensures a single, robust initialization of the Firebase Admin SDK.
+if (!getApps().length) {
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!serviceAccount) {
+    console.error('FATAL ERROR: FIREBASE_SERVICE_ACCOUNT_KEY is not set. The application will not work correctly.');
   } else {
-    adminApp = getApps()[0];
-    dbInstance = getFirestore(adminApp);
+    try {
+      // The service account key is a JSON string, so it needs to be parsed.
+      const serviceAccountJson = JSON.parse(serviceAccount);
+      initializeApp({
+        credential: credential.cert(serviceAccountJson),
+      });
+    } catch (e) {
+      console.error('Error initializing Firebase Admin SDK:', e);
+    }
   }
-};
+}
 
-// Initialize on module load
-initAdmin();
+// We can now safely get the admin app and firestore instance.
+const adminApp: App = getApps()[0];
+const db: ReturnType<typeof getFirestore> = getFirestore(adminApp);
 
-export { adminApp, dbInstance as db };
+export { adminApp, db };
