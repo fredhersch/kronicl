@@ -23,6 +23,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Map } from '../map';
+import { GooglePhotosPicker } from './google-photos-picker';
 import {
   Upload,
   Mic,
@@ -79,6 +80,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
   const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   
   const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
@@ -181,30 +183,30 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
   const tags = form.watch('tags');
 
+  const addMediaFiles = (newFiles: File[]) => {
+    const combinedFiles = [...mediaFiles, ...newFiles];
+    const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
+    const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
+
+    if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid selection',
+        description: 'You can upload up to 3 images or 1 video.',
+      });
+      return;
+    }
+    
+    setMediaFiles(combinedFiles);
+
+    if (combinedFiles.length > 0 && mediaFiles.length === 0) {
+      form.setValue('date', new Date(combinedFiles[0].lastModified));
+    }
+  };
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      const newFiles = Array.from(event.target.files);
-      const combinedFiles = [...mediaFiles, ...newFiles];
-      const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
-      const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
-
-      if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
-        toast({
-          variant: 'destructive',
-          title: 'Invalid selection',
-          description: 'You can upload up to 3 images or 1 video.',
-        });
-        // Reset file input to allow re-selection
-        event.target.value = '';
-        return;
-      }
-      
-      setMediaFiles(combinedFiles);
-
-      if (combinedFiles.length > 0 && mediaFiles.length === 0) {
-        form.setValue('date', new Date(combinedFiles[0].lastModified));
-      }
-      
+      addMediaFiles(Array.from(event.target.files));
       // Reset file input to allow re-selection of the same file if needed after removal
       event.target.value = '';
     }
@@ -474,7 +476,12 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                             <input type="file" multiple accept="image/*,video/*" className="sr-only" onChange={handleFileChange} />
                          </label>
                     </div>
-                    <Button variant="outline"><Cloud className="mr-2 h-4 w-4"/> Select from Google Photos</Button>
+                    <Button type="button" variant="outline" onClick={() => setIsPickerOpen(true)}><Cloud className="mr-2 h-4 w-4"/> Select from Google Photos</Button>
+                    <GooglePhotosPicker
+                        open={isPickerOpen}
+                        onOpenChange={setIsPickerOpen}
+                        onSelect={addMediaFiles}
+                    />
                 </div>
             </CardContent>
         </Card>
