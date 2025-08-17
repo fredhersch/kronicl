@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,8 +10,7 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { db, storage } from '@/lib/firebase-client';
-import { firebaseConfig } from '@/lib/firebase';
+import { db, storage, firebaseConfig } from '@/lib/firebase-client';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -102,7 +102,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   });
   
   const fetchLocationName = async (lat: number, lng: number) => {
-      if (!googleMapsApiKey || !googleMapsApiKey.startsWith('AIza')) {
+      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
+        console.warn("Google Maps API Key is missing or a placeholder.");
         form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         return;
       }
@@ -158,7 +159,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
 
-    if (!googleMapsApiKey || !googleMapsApiKey.startsWith('AIza')) {
+    if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
       toast({
         variant: "destructive",
         title: "Missing API Key",

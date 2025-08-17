@@ -57,11 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
-            setUser(user as User);
-            checkGooglePhotosConnection(user.uid);
-            // Get the ID token and send it to the server to create a session cookie.
             const idToken = await user.getIdToken();
             try {
+                // Set the user state first
+                setUser(user as User);
+                checkGooglePhotosConnection(user.uid);
+                // Then attempt to create the session
                 await fetch('/api/auth/session', {
                     method: 'POST',
                     headers: {
@@ -69,7 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     },
                 });
             } catch (err) {
-                console.error("Session cookie creation failed:", err)
+                console.error("Session cookie creation failed:", err);
+                // Potentially sign the user out if session creation is critical
+                // For now, we'll just log the error
             }
         } else {
             setUser(null);
