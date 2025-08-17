@@ -10,9 +10,8 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { db, storage, firebaseConfig } from '@/lib/firebase-client';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getFirestore, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Button } from '@/components/ui/button';
@@ -47,6 +46,11 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
 import Link from 'next/link';
+import { app } from '@/lib/firebase-client';
+
+const db = getFirestore(app);
+const storage = getStorage(app);
+
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -87,7 +91,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   
-  const googleMapsApiKey = firebaseConfig.apiKey;
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -102,8 +106,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   });
   
   const fetchLocationName = async (lat: number, lng: number) => {
-      if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
-        console.warn("Google Maps API Key is missing or a placeholder.");
+      if (!googleMapsApiKey) {
+        console.warn("Google Maps API Key is missing.");
         form.setValue('location', `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         return;
       }
@@ -159,7 +163,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
 
-    if (!googleMapsApiKey || googleMapsApiKey === 'YOUR_API_KEY_HERE') {
+    if (!googleMapsApiKey) {
       toast({
         variant: "destructive",
         title: "Missing API Key",

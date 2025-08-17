@@ -1,13 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase-client';
+import { collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
 import { Header } from '@/components/header';
 import { MemoryList } from '@/components/memories/memory-list';
 import type { Memory } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { Skeleton } from '@/components/ui/skeleton';
+import { app } from '@/lib/firebase-client';
+
+const db = getFirestore(app);
 
 export default function Dashboard() {
   const { user, loading } = useAuth();

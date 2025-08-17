@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase-client';
+import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { Memory } from '@/lib/types';
 import { MemoryDetail } from '@/components/memories/memory-detail';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,9 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, useParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { app } from '@/lib/firebase-client';
+
+const db = getFirestore(app);
 
 export default function MemoryDetailPage() {
   const params = useParams();
