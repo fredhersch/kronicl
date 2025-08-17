@@ -1,13 +1,14 @@
 'use client';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, LogOut, CheckCircle, XCircle, Link as LinkIcon, ArrowLeft } from 'lucide-react';
+import { User, Mail, LogOut, CheckCircle, XCircle, Link as LinkIcon, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const GoogleIcon = () => (
     <svg className="w-5 h-5 mr-2" viewBox="0 0 48 48">
@@ -22,12 +23,26 @@ const GoogleIcon = () => (
 export default function ProfilePage() {
   const { user, loading, signOut, isGooglePhotosConnected, linkGoogleAccount, unlinkGoogleAccount } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [connectionStatus, setConnectionStatus] = useState<{status: 'success' | 'error' | 'idle', message: string}>({status: 'idle', message: ''});
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+  
+  useEffect(() => {
+    const status = searchParams.get('status');
+    const message = searchParams.get('message');
+    if (status === 'success' && message) {
+        setConnectionStatus({status: 'success', message: decodeURIComponent(message)});
+    } else if (status === 'error' && message) {
+        setConnectionStatus({status: 'error', message: decodeURIComponent(message)});
+    } else {
+        setConnectionStatus({status: 'idle', message: ''});
+    }
+  }, [searchParams]);
 
   if (loading || !user) {
     return (
@@ -84,6 +99,15 @@ export default function ProfilePage() {
                     <CardDescription>Manage your account settings and connections.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-8">
+                    {connectionStatus.status !== 'idle' && (
+                        <Alert variant={connectionStatus.status === 'error' ? 'destructive' : 'default'} className={connectionStatus.status === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : ''}>
+                           {connectionStatus.status === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                            <AlertTitle>{connectionStatus.status === 'success' ? 'Connection Successful' : 'Connection Failed'}</AlertTitle>
+                            <AlertDescription>
+                                {connectionStatus.message}
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     <div className="flex flex-col items-center gap-4">
                         <Avatar className="w-24 h-24 border-4 border-primary/20">
                             <AvatarImage src={user.photoURL ?? undefined} alt={user.displayName ?? 'User'} />

@@ -72,32 +72,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getRedirectResult(auth)
       .then((result) => {
         if (result) {
-            toast({
-                title: 'Account Linked!',
-                description: 'Your Google account has been successfully linked.',
-            });
             handleUser(result.user);
+            const message = 'Your Google account has been successfully linked.';
+            router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
         }
       })
       .catch((error) => {
         console.error("Error processing redirect result:", error);
+        let message = 'Could not complete the connection. Please try again.';
         if (error.code === 'auth/credential-already-in-use') {
-             toast({
-                variant: 'destructive',
-                title: 'Account Linking Failed',
-                description: 'This Google account is already associated with another user.',
-            });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Connection Failed',
-                description: 'Could not complete the connection. Please try again.',
-            });
+            message = 'This Google account is already associated with another user.';
         }
+        router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
       });
 
     return () => unsubscribe();
-  }, [toast, handleUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   const signInWithGoogle = async () => {
     setLoading(true); 
