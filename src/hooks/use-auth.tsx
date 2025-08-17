@@ -12,7 +12,10 @@ import {
     linkWithRedirect,
     unlink,
     GoogleAuthProvider,
-    updateProfile
+    updateProfile,
+    initializeAuth,
+    indexedDBLocalPersistence,
+    browserLocalPersistence
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
@@ -44,68 +47,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
+  useEffect(() => {
+    // This effect should only run once to initialize auth and set up listeners.
+    const initialize = async () => {
+      try {
+        // Initialize auth with persistence. This is crucial to do once.
+        initializeAuth(auth.app, { persistence: indexedDBLocalPersistence });
+      } catch (e) {
+        console.error("Firebase auth initialization error", e);
+      }
+
+      const unsubscribe = onAuthStateChanged(auth, handleUser);
+
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          await handleUser(result.user);
+          setTimeout(() => {
+            if (isLinkingFlow) {
+              const message = 'Your Google account has been successfully linked.';
+              router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
+              setIsLinkingFlow(false);
+            } else {
+              router.push('/');
+            }
+          }, 100);
+        }
+      } catch (error: any) {
+        console.error("Error processing redirect result:", error);
+        let message = 'Could not complete the authentication. Please try again.';
+        if (error.code === 'auth/credential-already-in-use') {
+          message = 'This Google account is already associated with another user.';
+        }
+        if (isLinkingFlow) {
+          router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
+          setIsLinkingFlow(false);
+        } else {
+          // It's possible for this to fire on login page if there's a stored redirect error.
+          // Only show toast if it's a manual login attempt, not on page load.
+          // For now, logging to console is safer than showing a confusing toast on load.
+        }
+      }
+
+      return unsubscribe;
+    };
+
+    const unsubscribePromise = initialize();
+
+    return () => {
+      unsubscribePromise.then(unsubscribe => unsubscribe());
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleUser = useCallback(async (rawUser: FirebaseUser | null) => {
     if (rawUser) {
         setUser(rawUser as User);
         const idToken = await rawUser.getIdToken();
-        // This check is to prevent fetch on initial load before user interaction
-        if (idToken) {
-            try {
-                await fetch('/api/auth/session', {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${idToken}`,
-                    },
-                });
-            } catch (error) {
-                console.error("Failed to create session cookie:", error);
-            }
+        try {
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                },
+            });
+        } catch (error) {
+            console.error("Failed to create session cookie:", error);
         }
     } else {
         setUser(null);
         await fetch('/api/auth/session', { method: 'DELETE' });
     }
     setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, handleUser);
-
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result) {
-            await handleUser(result.user);
-            
-            // Small delay to ensure session is established
-            setTimeout(() => {
-                if (isLinkingFlow) {
-                    const message = 'Your Google account has been successfully linked.';
-                    router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
-                    setIsLinkingFlow(false);
-                } else {
-                    // This was a sign-in operation, redirect to main dashboard
-                    router.push('/');
-                }
-            }, 100);
-        }
-      })
-      .catch((error) => {
-        console.error("Error processing redirect result:", error);
-        let message = 'Could not complete the authentication. Please try again.';
-        if (error.code === 'auth/credential-already-in-use') {
-            message = 'This Google account is already associated with another user.';
-        }
-        // For sign-in errors, redirect to login; for linking errors, redirect to profile
-        if (isLinkingFlow) {
-            router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
-            setIsLinkingFlow(false);
-        } else {
-            router.push(`/login?status=error&message=${encodeURIComponent(message)}`);
-        }
-      });
-
-    return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const signInWithGoogle = async () => {
@@ -134,7 +147,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
         const { user } = await createUserWithEmailAndPassword(auth, email, password);
-        // Set a default display name from the email
         const displayName = email.split('@')[0];
         await updateProfile(user, { displayName });
         
@@ -186,8 +198,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!auth.currentUser) return;
     try {
         const googleProviderId = GoogleAuthProvider.PROVIDER_ID;
-        // The providerData array is guaranteed to exist for any user, even if empty.
-        // We filter to find the Google provider.
         const googleProviderInfo = auth.currentUser.providerData.find(p => p.providerId === googleProviderId);
 
         if (googleProviderInfo) {
@@ -196,7 +206,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 title: 'Account unlinked',
                 description: 'Your Google account has been unlinked.',
             });
-            // Manually trigger a user state update by re-fetching the user from auth
             await auth.currentUser.reload();
             handleUser(auth.currentUser);
         } else {
