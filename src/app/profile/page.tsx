@@ -5,8 +5,9 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, LogOut, CheckCircle, XCircle, Link as LinkIcon } from 'lucide-react';
+import { User, Mail, LogOut, CheckCircle, XCircle, Link as LinkIcon, ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
 const GoogleIcon = () => (
     <svg className="w-5 h-5 mr-2" viewBox="0 0 48 48">
@@ -30,29 +31,35 @@ export default function ProfilePage() {
 
   if (loading || !user) {
     return (
-        <div className="flex flex-col min-h-screen items-center justify-center p-4 bg-background">
-            <Card className="w-full max-w-2xl">
-                <CardHeader className="text-center">
-                    <Skeleton className="h-8 w-48 mx-auto" />
-                    <Skeleton className="h-4 w-64 mx-auto mt-2" />
-                </CardHeader>
-                <CardContent className="space-y-8">
-                     <div className="flex flex-col items-center gap-4">
-                        <Skeleton className="h-24 w-24 rounded-full" />
-                        <div className="text-center">
-                            <Skeleton className="h-6 w-32" />
-                            <Skeleton className="h-4 w-40 mt-2" />
+        <div className="flex flex-col min-h-screen bg-background">
+             <header className="sticky top-0 z-10 flex items-center h-16 px-4 border-b bg-background/80 backdrop-blur-sm sm:px-6 md:px-8">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-6 w-32 ml-4" />
+            </header>
+            <main className="flex flex-1 items-center justify-center p-4">
+                <Card className="w-full max-w-2xl">
+                    <CardHeader className="text-center">
+                        <Skeleton className="h-8 w-48 mx-auto" />
+                        <Skeleton className="h-4 w-64 mx-auto mt-2" />
+                    </CardHeader>
+                    <CardContent className="space-y-8">
+                         <div className="flex flex-col items-center gap-4">
+                            <Skeleton className="h-24 w-24 rounded-full" />
+                            <div className="text-center">
+                                <Skeleton className="h-6 w-32" />
+                                <Skeleton className="h-4 w-40 mt-2" />
+                            </div>
                         </div>
-                    </div>
-                    <div className="space-y-4">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="flex justify-end">
-                        <Skeleton className="h-10 w-24" />
-                     </div>
-                </CardContent>
-            </Card>
+                        <div className="space-y-4">
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                         <div className="flex justify-end">
+                            <Skeleton className="h-10 w-24" />
+                         </div>
+                    </CardContent>
+                </Card>
+            </main>
         </div>
     );
   }
@@ -60,7 +67,16 @@ export default function ProfilePage() {
   const isConnected = isGooglePhotosConnected();
 
   return (
-    <div className="min-h-screen bg-background font-body p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen bg-background font-body">
+       <header className="sticky top-0 z-10 flex items-center h-16 px-4 border-b bg-background/80 backdrop-blur-sm sm:px-6 md:px-8">
+        <Link href="/">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+        </Link>
+        <h1 className="ml-4 text-xl font-headline">Profile Settings</h1>
+      </header>
+      <main className="p-4 sm:p-6 md:p-8">
         <div className="max-w-2xl mx-auto">
             <Card>
                 <CardHeader className="text-center border-b">
@@ -120,6 +136,7 @@ export default function ProfilePage() {
                 </CardContent>
             </Card>
         </div>
+      </main>
     </div>
   );
 }
