@@ -10,8 +10,6 @@ import {
     signInWithEmailAndPassword,
     GoogleAuthProvider,
     updateProfile,
-    initializeAuth,
-    indexedDBLocalPersistence,
     getAuth
 } from 'firebase/auth';
 import { app, googleProvider } from '@/lib/firebase';
@@ -57,15 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // This effect should only run once on mount
-    try {
-        initializeAuth(app, { persistence: indexedDBLocalPersistence });
-    } catch (e: any) {
-        if (e.code !== 'auth/already-initialized') {
-            console.error("Firebase auth initialization error", e);
-        }
-    }
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
             setUser(user as User);
