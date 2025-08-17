@@ -1,35 +1,36 @@
 'use server';
 
-import { auth as adminAuth } from 'firebase-admin';
-import { auth } from 'firebase-admin';
+import { auth as adminAuth, initializeApp, getApps, App } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
 import { google } from 'googleapis';
 
-const initAdmin = async () => {
+const initAdmin = (): App => {
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!serviceAccount) {
-    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable');
+    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable. Please refer to the documentation to set it up.');
   }
 
-  const alreadyCreated = adminAuth.getApp();
-  if (alreadyCreated) {
-    return alreadyCreated;
+  if (getApps().length) {
+    return getApps()[0];
   }
 
-  return auth.cert(JSON.parse(serviceAccount));
+  return initializeApp({
+    credential: adminAuth.cert(JSON.parse(serviceAccount)),
+  });
 };
 
 
 export async function getGooglePhotos() {
-  await initAdmin();
+  initAdmin();
   const sessionCookie = cookies().get('__session')?.value;
   if (!sessionCookie) {
     throw new Error('Not authenticated');
   }
 
   try {
-    const decodedIdToken = await adminAuth().verifySessionCookie(sessionCookie, true);
-    const user = await adminAuth().getUser(decodedIdToken.uid);
+    const decodedIdToken = await getAuth().verifySessionCookie(sessionCookie, true);
+    const user = await getAuth().getUser(decodedIdToken.uid);
 
     const googleAuthProvider = user.providerData.find(
       (provider) => provider.providerId === 'google.com'
