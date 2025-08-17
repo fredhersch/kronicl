@@ -25,14 +25,15 @@ const initAdmin = (): App => {
 async function getAccessTokenFromSession() {
     const sessionCookie = cookies().get('__session')?.value;
     if (!sessionCookie) {
-      throw new Error('Not authenticated');
+      console.warn('getAccessTokenFromSession: No session cookie found. User is not authenticated.');
+      return null;
     }
   
     initAdmin();
     
     try {
       const decodedIdToken = await getAuth().verifySessionCookie(sessionCookie, true);
-      const user = await getAuth().getUser(decodedIdToken.uid);
+      await getAuth().getUser(decodedIdToken.uid);
   
       // This is a simplified token management approach for the prototype.
       // In a production app, you would securely store and refresh the user's OAuth2 refresh token.
@@ -40,7 +41,6 @@ async function getAccessTokenFromSession() {
           scopes: ['https://www.googleapis.com/auth/photoslibrary.readonly'],
           // This will not work for user data access. This is a placeholder.
           // Correct implementation requires a full OAuth2 flow to get user-specific tokens.
-          // For now, we will rely on a pre-configured access token for demonstration.
       });
 
       // The following line is a placeholder and will not work as intended for fetching user-specific data
@@ -55,13 +55,19 @@ async function getAccessTokenFromSession() {
 
     } catch (error) {
       console.error('Error getting access token', error);
-      throw new Error('Failed to obtain access token.');
+      // Return null if token verification fails
+      return null;
     }
 }
 
 
 export async function getGooglePhotos() {
   const accessToken = await getAccessTokenFromSession();
+  
+  if (!accessToken) {
+    console.log("No access token available, returning empty array for Google Photos.");
+    return [];
+  }
   
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({ access_token: accessToken });
