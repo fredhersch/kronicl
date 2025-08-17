@@ -3,23 +3,19 @@ import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
-const initAdmin = (): App => {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!serviceAccount) {
-    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY environment variable.');
+// Initialize Firebase Admin SDK
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+if (serviceAccount && !getApps().length) {
+  try {
+    initializeApp({
+      credential: credential.cert(JSON.parse(serviceAccount)),
+    });
+  } catch (error: any) {
+    console.error('Firebase Admin Initialization Error:', error.message);
   }
-
-  if (getApps().length) {
-    return getApps()[0];
-  }
-
-  return initializeApp({
-    credential: credential.cert(JSON.parse(serviceAccount)),
-  });
-};
+}
 
 export async function POST(request: NextRequest) {
-    initAdmin();
     const authorization = request.headers.get('Authorization');
     if (authorization?.startsWith('Bearer ')) {
         const idToken = authorization.split('Bearer ')[1];
@@ -31,10 +27,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ status: 'success' });
         } catch (error) {
             console.error('Error creating session cookie:', error);
-            return NextResponse.json({ status: 'error' }, { status: 401 });
+            // It's important to return a proper error response
+            return NextResponse.json({ status: 'error', message: 'Failed to create session' }, { status: 401 });
         }
     }
-    return NextResponse.json({ status: 'error' }, { status: 400 });
+    return NextResponse.json({ status: 'error', message: 'Authorization header missing or invalid' }, { status: 400 });
 }
 
 
