@@ -63,12 +63,12 @@ export function Map({ latitude, longitude }: MapProps) {
   const center = { lat: latitude, lng: longitude };
   const apiKey = firebaseConfig.apiKey;
 
-  if (!apiKey || apiKey.startsWith('YOUR_')) {
+  if (!apiKey || apiKey.startsWith('AIza')) {
     return (
       <div className="w-full h-48 bg-muted rounded-lg overflow-hidden border flex flex-col items-center justify-center text-center p-4">
         <MapPin className="w-8 h-8 text-primary" />
         <p className="text-xs text-muted-foreground mt-2">
-          Google Maps API Key is missing or invalid.
+          Google Maps API Key is missing or invalid. Please check your configuration.
         </p>
       </div>
     );

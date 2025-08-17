@@ -12,10 +12,9 @@ import {
     updateProfile,
     getAuth
 } from 'firebase/auth';
-import { app, googleProvider } from '@/lib/firebase';
+import { app, googleProvider, auth as firebaseAuth, db } from '@/lib/firebase-client';
 import { useToast } from './use-toast';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 
 // Define a type for the user object, extending the FirebaseUser
@@ -45,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
   
-  const auth = getAuth(app);
+  const auth = firebaseAuth;
 
   const checkGooglePhotosConnection = useCallback(async (uid: string) => {
     const tokenDoc = await getDoc(doc(db, 'google-photos', uid));

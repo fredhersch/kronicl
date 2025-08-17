@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-client';
 import { Header } from '@/components/header';
 import { MemoryList } from '@/components/memories/memory-list';
 import type { Memory } from '@/lib/types';
