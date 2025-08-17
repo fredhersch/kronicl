@@ -3,37 +3,38 @@ import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 let adminApp: App;
-let db: ReturnType<typeof getFirestore>;
 
-if (!getApps().length) {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (serviceAccount) {
-    try {
-      // The service account key is expected to be a stringified JSON object.
-      // We need to parse it before passing it to the credential.cert method.
-      const serviceAccountJson = JSON.parse(serviceAccount);
-      adminApp = initializeApp({
-        credential: credential.cert(serviceAccountJson),
-      });
-    } catch (e) {
-      console.error('Error parsing FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it is a valid JSON string.', e);
-    }
-  } else {
-    console.error('FATAL ERROR: FIREBASE_SERVICE_ACCOUNT_KEY is not set. The application will not work correctly.');
+function getAdminApp(): App {
+  if (adminApp) {
+    return adminApp;
   }
-} else {
-    adminApp = getApps()[0];
+
+  const apps = getApps();
+  if (apps.length > 0) {
+    adminApp = apps[0];
+    return adminApp;
+  }
+
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  if (!serviceAccount) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set. The application will not work correctly.');
+  }
+
+  try {
+    const serviceAccountJson = JSON.parse(serviceAccount);
+    adminApp = initializeApp({
+      credential: credential.cert(serviceAccountJson),
+    });
+    return adminApp;
+  } catch (e: any) {
+    console.error('Error parsing FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it is a valid JSON string.', e);
+    throw new Error('Failed to initialize Firebase Admin SDK: ' + e.message);
+  }
 }
 
-// Initialize Firestore only if the app was initialized successfully
-// @ts-ignore
-if (adminApp) {
-    db = getFirestore(adminApp);
-} else {
-    // Provide a dummy db object to avoid crashing the app on import
-    // when the service key is not available. Errors will be logged at runtime.
-    db = {} as ReturnType<typeof getFirestore>;
+function getDb() {
+    return getFirestore(getAdminApp());
 }
 
 
-export { adminApp, db };
+export { getAdminApp, getDb };

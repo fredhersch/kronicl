@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getOAuth2Client } from '@/lib/google-auth';
-import { db } from '@/lib/firebase-admin';
+import { getDb, getAdminApp } from '@/lib/firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 
 const OAUTH_STATE_COOKIE = 'gcp_oauth_state';
@@ -35,6 +35,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    getAdminApp(); // Ensure app is initialized
+    const db = getDb();
+
     // --- Verify Firebase session and get user UID ---
     const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
     const uid = decodedToken.uid;
