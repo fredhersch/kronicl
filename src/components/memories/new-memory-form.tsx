@@ -276,8 +276,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       e.preventDefault();
-      const newTags = [...tags, tagInput.trim()];
-      form.setValue('tags', newTags, { shouldValidate: true });
+      const newTag = tagInput.trim();
+      if (newTag && !tags.includes(newTag)) {
+        const newTags = [...tags, newTag];
+        form.setValue('tags', newTags, { shouldValidate: true });
+      }
       setTagInput('');
     }
   };
@@ -640,5 +643,3 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     </Form>
   );
 }
-
-    
