@@ -53,8 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         // Initialize auth with persistence. This is crucial to do once.
         initializeAuth(auth.app, { persistence: indexedDBLocalPersistence });
-      } catch (e) {
-        console.error("Firebase auth initialization error", e);
+      } catch (e: any) {
+        if (e.code !== 'auth/already-initialized') {
+            console.error("Firebase auth initialization error", e);
+        }
       }
 
       const unsubscribe = onAuthStateChanged(auth, handleUser);
