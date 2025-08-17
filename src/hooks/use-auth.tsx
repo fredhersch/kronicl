@@ -3,19 +3,17 @@ import { useState, useEffect, createContext, useContext, ReactNode, useCallback 
 import { useRouter } from 'next/navigation';
 import { 
     onAuthStateChanged, 
-    signInWithRedirect, 
+    signInWithPopup, 
     signOut as firebaseSignOut, 
     User as FirebaseUser, 
-    getRedirectResult, 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
-    linkWithRedirect,
+    linkWithPopup,
     unlink,
     GoogleAuthProvider,
     updateProfile,
     initializeAuth,
-    indexedDBLocalPersistence,
-    browserLocalPersistence
+    indexedDBLocalPersistence
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { useToast } from './use-toast';
@@ -43,59 +41,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isLinkingFlow, setIsLinkingFlow] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    // This effect should only run once to initialize auth and set up listeners.
-    const initialize = async () => {
-      try {
-        // Initialize auth with persistence. This is crucial to do once.
+    try {
         initializeAuth(auth.app, { persistence: indexedDBLocalPersistence });
-      } catch (e: any) {
+    } catch (e: any) {
         if (e.code !== 'auth/already-initialized') {
             console.error("Firebase auth initialization error", e);
         }
-      }
+    }
 
-      const unsubscribe = onAuthStateChanged(auth, handleUser);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+        handleUser(user);
+        setLoading(false);
+    });
 
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          await handleUser(result.user);
-          // Add a short delay to ensure state propagation before redirect
-          setTimeout(() => {
-            if (isLinkingFlow) {
-              const message = 'Your Google account has been successfully linked.';
-              router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
-              setIsLinkingFlow(false);
-            } else {
-              router.push('/');
-            }
-          }, 100); 
-        }
-      } catch (error: any) {
-        console.error("Error processing redirect result:", error);
-        let message = 'Could not complete the authentication. Please try again.';
-        if (error.code === 'auth/credential-already-in-use') {
-          message = 'This Google account is already associated with another user.';
-        }
-        if (isLinkingFlow) {
-          router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
-          setIsLinkingFlow(false);
-        }
-      }
-
-      return unsubscribe;
-    };
-
-    const unsubscribePromise = initialize();
-
-    return () => {
-      unsubscribePromise.then(unsubscribe => unsubscribe());
-    };
+    return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -117,12 +80,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         await fetch('/api/auth/session', { method: 'DELETE' });
     }
-    setLoading(false);
   }, []);
   
   const signInWithGoogle = async () => {
-    setLoading(true); 
-    await signInWithRedirect(auth, googleProvider);
+    setLoading(true);
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        await handleUser(result.user);
+        router.push('/');
+    } catch(error: any) {
+        console.error("Google sign in failed:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Sign In Failed',
+            description: 'Could not sign in with Google. Please try again.',
+        });
+    } finally {
+        setLoading(false);
+    }
   };
 
   const signInWithEmail = async (email: string, password: string) => {
@@ -138,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             title: 'Sign In Failed',
             description: 'Invalid email or password.',
         });
+    } finally {
         setLoading(false);
     }
   };
@@ -158,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             title: 'Sign Up Failed',
             description: error.message || 'Could not create account. Please try again.',
         });
+    } finally {
         setLoading(false);
     }
   };
@@ -180,15 +157,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const linkGoogleAccount = async () => {
     if (!auth.currentUser) return;
     try {
-        setIsLinkingFlow(true);
-        await linkWithRedirect(auth.currentUser, googleProvider);
+        await linkWithPopup(auth.currentUser, googleProvider);
+        toast({
+            title: 'Account linked',
+            description: 'Your Google account has been successfully linked.',
+        });
+        await auth.currentUser.reload();
+        handleUser(auth.currentUser);
     } catch (error: any) {
         console.error("Error linking Google Account", error);
-        setIsLinkingFlow(false);
+        let description = 'There was a problem linking your Google Account.';
+        if (error.code === 'auth/credential-already-in-use') {
+            description = 'This Google account is already associated with another user.';
+        }
         toast({
             variant: 'destructive',
             title: 'Failed to link account',
-            description: 'There was a problem linking your Google Account.',
+            description,
         });
     }
   };
