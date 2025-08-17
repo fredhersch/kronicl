@@ -5,6 +5,11 @@ import { getFirestore } from 'firebase-admin/firestore';
 let adminApp: App;
 
 function getAdminApp(): App {
+  // This check prevents this server-side code from ever running in the browser.
+  if (typeof window !== 'undefined') {
+    throw new Error("Firebase Admin SDK can't be used in the browser.");
+  }
+  
   if (getApps().length > 0) {
     adminApp = getApps()[0];
     return adminApp;
