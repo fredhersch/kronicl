@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const savedState = cookies().get(OAUTH_STATE_COOKIE)?.value;
 
-  // Clear the state cookie after retrieving it
+  // Prepare response to clear the state cookie after retrieving it
   const response = NextResponse.redirect(new URL('/profile', req.url));
   response.cookies.delete(OAUTH_STATE_COOKIE);
 
