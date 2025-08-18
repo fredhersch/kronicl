@@ -1,4 +1,5 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Cursor-specific ignore file
+# This overrides .gitignore rules for Cursor IDE
 
 # dependencies
 /node_modules
@@ -25,10 +26,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# local env files
-#.env*.local
-#.env
-
 # vercel
 .vercel
 
@@ -38,3 +35,7 @@ next-env.d.ts
 
 # studio
 .studio
+
+# Note: NOT ignoring .env files so Cursor can see them
+# .env*.local  <- commented out so Cursor can see these
+# .env         <- commented out so Cursor can see these

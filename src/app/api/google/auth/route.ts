@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
     });
 
     // Store the state in a secure, HTTP-only cookie to prevent CSRF attacks
-    cookies().set(OAUTH_STATE_COOKIE, state, {
+    const cookieStore = await cookies();
+    cookieStore.set(OAUTH_STATE_COOKIE, state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 5, // 5 minutes

@@ -19,7 +19,8 @@ export function getOAuth2Client(): OAuth2Client {
 
 // This function gets a fully authenticated client for making API calls
 export async function getAuthenticatedClient(): Promise<OAuth2Client | null> {
-  const sessionCookie = cookies().get('__session')?.value;
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get('__session')?.value;
   if (!sessionCookie) {
     console.log("No session cookie, user not authenticated.");
     return null;

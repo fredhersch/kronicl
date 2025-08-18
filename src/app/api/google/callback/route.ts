@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
 
-  const savedState = cookies().get(OAUTH_STATE_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const savedState = cookieStore.get(OAUTH_STATE_COOKIE)?.value;
 
   // Prepare response to clear the state cookie after retrieving it
   const response = NextResponse.redirect(new URL('/profile', req.url));
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   if (!state || !savedState || state !== savedState) {
     return NextResponse.redirect(new URL('/profile?status=error&message=Invalid+state.+CSRF+attack+suspected.', req.url));
   }
-  const sessionCookie = cookies().get('__session')?.value;
+  const sessionCookie = cookieStore.get('__session')?.value;
   if (!sessionCookie) {
     // This should ideally redirect to login, but for simplicity, redirecting to profile with error.
     return NextResponse.redirect(new URL('/profile?status=error&message=Authentication+required.', req.url));
