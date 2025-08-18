@@ -46,7 +46,6 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
 import Link from 'next/link';
-import { firebaseConfig } from '@/lib/firebase-client';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -87,7 +86,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   
-  const googleMapsApiKey = firebaseConfig.apiKey;
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

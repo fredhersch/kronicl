@@ -5,13 +5,12 @@ import { useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     onAuthStateChanged,
-    signInWithRedirect,
-    getRedirectResult,
     signOut as firebaseSignOut,
     User as FirebaseUser,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     GoogleAuthProvider,
+    signInWithPopup,
     updateProfile,
     getAuth,
     Auth
@@ -58,28 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!auth) return; // Don't run auth logic until the auth instance is ready.
     
-    // Handle the redirect result from Google Sign-In
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          // User has successfully signed in.
-          // The onAuthStateChanged listener below will handle the user state update.
-          router.push('/');
-        }
-      })
-      .catch((error) => {
-        console.error("Google sign in redirect failed:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Sign In Failed',
-            description: error.message || 'Could not sign in with Google. Please try again.',
-        });
-      })
-      .finally(() => {
-          // This part of loading is done, onAuthStateChanged will handle the rest.
-          // We can set loading to false if not for the listener.
-      });
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
             const idToken = await user.getIdToken();
@@ -111,10 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const googleProvider = new GoogleAuthProvider();
     googleProvider.addScope('https://www.googleapis.com/auth/photoslibrary.readonly');
-    googleProvider.setCustomParameters({ prompt: 'select_account' });
     try {
-        await signInWithRedirect(auth, googleProvider);
-        // After this, the page will redirect. The result is handled by getRedirectResult.
+        await signInWithPopup(auth, googleProvider);
+        router.push('/');
     } catch(error: any) {
         console.error("Google sign in failed:", error);
         toast({
@@ -122,7 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             title: 'Sign In Failed',
             description: 'Could not sign in with Google. Please try again.',
         });
-        setLoading(false);
+    } finally {
+      setLoading(false);
     }
   };
 

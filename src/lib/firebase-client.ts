@@ -1,14 +1,13 @@
 'use client';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 
-// NOTE: Using the correct, verified Firebase config to fix environment variable loading issues.
 const firebaseConfig = {
-    projectId: 'memorylane-ghzrx',
-    appId: '1:992326242121:web:13da8459c8e46d42edd498',
-    storageBucket: 'memorylane-ghzrx.appspot.com',
-    apiKey: 'AIzaSyA-rkUxnU-lvCa7tcOrWySvN43B3aV69wA',
-    authDomain: 'memorylane-ghzrx.firebaseapp.com',
-    messagingSenderId: '992326242121',
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
 };
 
 // Initialize Firebase

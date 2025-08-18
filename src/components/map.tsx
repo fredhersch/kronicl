@@ -62,14 +62,14 @@ const render = (status: Status): ReactNode => {
 
 export function Map({ latitude, longitude }: MapProps) {
   const center = { lat: latitude, lng: longitude };
-  const apiKey = firebaseConfig.apiKey;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey || apiKey.includes('YOUR_API_KEY')) {
     return (
       <div className="w-full h-48 bg-muted rounded-lg overflow-hidden border flex flex-col items-center justify-center text-center p-4">
         <MapPin className="w-8 h-8 text-primary" />
         <p className="text-xs text-muted-foreground mt-2">
-          Google Maps API Key is missing or invalid. Please check your configuration.
+          Google Maps API Key is missing or invalid. Please check your .env.local file.
         </p>
       </div>
     );
