@@ -4,6 +4,7 @@ import { useRef, useEffect, ReactNode } from 'react';
 import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { MapPin } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
+import { firebaseConfig } from '@/lib/firebase-client';
 
 interface MapProps {
   latitude: number;
@@ -61,7 +62,7 @@ const render = (status: Status): ReactNode => {
 
 export function Map({ latitude, longitude }: MapProps) {
   const center = { lat: latitude, lng: longitude };
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = firebaseConfig.apiKey;
 
   if (!apiKey || apiKey.includes('YOUR_API_KEY')) {
     return (
