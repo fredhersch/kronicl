@@ -20,7 +20,9 @@ if (typeof process !== 'undefined') {
 // Validate Gemini API key
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 if (!geminiApiKey) {
-  console.error('Missing GEMINI_API_KEY or GOOGLE_API_KEY environment variable. AI features will not work.');
+  console.error('❌ Missing GEMINI_API_KEY or GOOGLE_API_KEY environment variable.');
+  console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('GEMINI') || key.includes('GOOGLE')));
+  console.error('To fix: Add GEMINI_API_KEY=your_api_key to your .env file');
   throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required');
 }
 
