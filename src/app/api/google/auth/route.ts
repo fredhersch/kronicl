@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
     // Generate a random state value for security
     const state = Math.random().toString(36).substring(2);
 
-    // Define the scopes we need - try both array and space-separated formats
+    // Define the scopes we need - use the broader photoslibrary scope
     const scopesArray = [
-      'https://www.googleapis.com/auth/photoslibrary.readonly',
+      'https://www.googleapis.com/auth/photoslibrary', // Changed from photoslibrary.readonly
       'https://www.googleapis.com/auth/userinfo.profile',
       'https://www.googleapis.com/auth/userinfo.email'
     ];
@@ -30,8 +30,10 @@ export async function GET(req: NextRequest) {
     const authorizationUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline', // 'offline' gets a refresh token
       scope: scopesString, // Use space-separated string format
-      prompt: 'consent', // Force consent screen to ensure refresh token is provided
+      prompt: 'consent select_account', // Force consent screen and account selection
       state: state,
+      include_granted_scopes: true, // Include previously granted scopes
+      response_type: 'code', // Explicitly request authorization code
     });
     
     console.log('🔗 Generated authorization URL:', authorizationUrl);

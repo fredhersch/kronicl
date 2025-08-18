@@ -59,9 +59,24 @@ export async function getAuthenticatedClient(): Promise<OAuth2Client | null> {
     const oauth2Client = getOAuth2Client();
     oauth2Client.setCredentials({
       refresh_token: refreshToken,
+      access_token: tokenData?.accessToken, // Add the access token
+      scope: scopes, // Add the scopes
+      expiry_date: tokenData?.tokenExpiry, // Add the expiry date
     });
     
     console.log(`✅ OAuth client configured with scopes: ${scopes}`);
+    
+    // Force token refresh if access token is missing or expired
+    if (!tokenData?.accessToken || (tokenData?.tokenExpiry && Date.now() > tokenData.tokenExpiry)) {
+      console.log('🔄 Access token missing or expired, refreshing...');
+      try {
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        console.log('✅ Access token refreshed successfully');
+      } catch (refreshError) {
+        console.error('❌ Failed to refresh access token:', refreshError);
+        return null;
+      }
+    }
     
     // The library will automatically handle refreshing the access token if it's expired.
     return oauth2Client;

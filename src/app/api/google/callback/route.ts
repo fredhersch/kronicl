@@ -65,7 +65,8 @@ export async function GET(req: NextRequest) {
       if (typeof scope === 'string') {
         const scopeArray = scope.split(' ');
         console.log('📋 Scopes as array:', scopeArray);
-        console.log('🔍 Photos Library scope included:', scopeArray.includes('https://www.googleapis.com/auth/photoslibrary.readonly'));
+        // Fix: Check for the new photoslibrary scope, not readonly
+        console.log('🔍 Photos Library scope included:', scopeArray.includes('https://www.googleapis.com/auth/photoslibrary'));
       }
     }
     

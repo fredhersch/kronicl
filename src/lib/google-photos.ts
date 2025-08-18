@@ -13,7 +13,7 @@ export async function getGooglePhotos() {
       return [];
     }
 
-    console.log('✅ OAuth client authenticated, using direct REST API...');
+    console.log('✅ OAuth client authenticated, using Google Photos Library API...');
     
     // Debug: Check what credentials are set on the OAuth client
     const credentials = oauth2Client.credentials;
@@ -25,13 +25,33 @@ export async function getGooglePhotos() {
       tokenExpiry: credentials.expiry_date
     });
 
-    // Use the REST API directly since google.photoslibrary seems to have issues
+    // Try using the Google Photos Library API with proper scope handling
     try {
-      console.log('🔍 Searching for media items using REST API...');
+      console.log('🔍 Searching for media items using Google Photos Library API...');
       
+      // First, let's verify the scopes are properly formatted
+      const requiredScope = 'https://www.googleapis.com/auth/photoslibrary';
+      const currentScopes = credentials.scope || '';
+      
+      console.log('🔍 Scope verification:', {
+        requiredScope,
+        currentScopes,
+        hasRequiredScope: currentScopes.includes(requiredScope),
+        scopeArray: currentScopes.split(' ')
+      });
+      
+      if (!currentScopes.includes(requiredScope)) {
+        throw new Error(`Missing required scope: ${requiredScope}. Available scopes: ${currentScopes}`);
+      }
+      
+      // Try the REST API with explicit scope verification
       const response = await oauth2Client.request({
         url: 'https://photoslibrary.googleapis.com/v1/mediaItems:search',
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${credentials.access_token}`,
+          'Content-Type': 'application/json',
+        },
         data: {
           pageSize: 25,
           filters: {
@@ -43,11 +63,11 @@ export async function getGooglePhotos() {
       });
       
       const mediaItems = response.data.mediaItems || [];
-      console.log(`✅ Found ${mediaItems.length} media items using REST API`);
+      console.log(`✅ Found ${mediaItems.length} media items using Google Photos Library API`);
       
       return mediaItems;
     } catch (apiError: any) {
-      console.error('❌ REST API call failed:', apiError);
+      console.error('❌ Google Photos Library API call failed:', apiError);
       
       // Log detailed error information
       if (apiError.response?.data) {

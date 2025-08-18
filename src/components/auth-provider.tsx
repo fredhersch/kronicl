@@ -103,10 +103,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkGooglePhotosConnection = useCallback(async (uid: string) => {
     if (!db) return false;
-    const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
-    const connected = tokenDoc.exists();
-    setIsPhotosConnected(connected);
-    return connected;
+    
+    try {
+      const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
+      
+      if (!tokenDoc.exists()) {
+        console.log(`No Google Photos token document found for user ${uid}`);
+        setIsPhotosConnected(false);
+        return false;
+      }
+      
+      const tokenData = tokenDoc.data();
+      const hasRefreshToken = !!tokenData?.refreshToken;
+      const hasAccessToken = !!tokenData?.accessToken;
+      // Fix: Check for the new photoslibrary scope, not readonly
+      const hasValidScopes = tokenData?.scopes?.includes('https://www.googleapis.com/auth/photoslibrary');
+      
+      console.log(`🔍 Google Photos connection check for user ${uid}:`, {
+        hasRefreshToken,
+        hasAccessToken,
+        hasValidScopes,
+        scopes: tokenData?.scopes
+      });
+      
+      // Only consider connected if we have all required tokens and scopes
+      const isConnected = hasRefreshToken && hasAccessToken && hasValidScopes;
+      
+      setIsPhotosConnected(isConnected);
+      
+      if (!isConnected) {
+        console.log(`❌ Invalid or incomplete Google Photos tokens for user ${uid}`);
+        // Clean up invalid tokens
+        if (tokenDoc.exists()) {
+          await deleteDoc(doc(db, 'google-photos', uid));
+          console.log(`✅ Cleaned up invalid token document for user ${uid}`);
+        }
+      } else {
+        console.log(`✅ Valid Google Photos connection found for user ${uid}`);
+      }
+      
+      return isConnected;
+    } catch (error) {
+      console.error(`Error checking Google Photos connection for user ${uid}:`, error);
+      setIsPhotosConnected(false);
+      return false;
+    }
   }, [db]);
 
   useEffect(() => {
@@ -217,18 +258,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const linkGoogleAccount = async () => {
     if (!auth?.currentUser) return;
-    const googleProvider = new GoogleAuthProvider();
-    setIsLinkingFlow(true); // <-- Set the flag here
+    
+    // Check if already connected to avoid duplicate linking
+    if (isPhotosConnected) {
+      toast({
+        title: 'Already Connected',
+        description: 'Your Google Photos account is already connected.',
+      });
+      return;
+    }
+    
+    setIsLinkingFlow(true);
     try {
-        await linkWithRedirect(auth.currentUser, googleProvider);
+      // Use the API route instead of Firebase linking
+      // This will handle the OAuth flow for Google Photos API access
+      window.location.href = '/api/google/auth';
     } catch (error) {
-        console.error("Error starting Google link flow:", error);
-        setIsLinkingFlow(false); // Reset on error
-        toast({
-            variant: 'destructive',
-            title: 'Connection Failed',
-            description: 'Could not start the Google connection process. Please try again.',
-        });
+      console.error("Error starting Google Photos connection:", error);
+      setIsLinkingFlow(false);
+      toast({
+        variant: 'destructive',
+        title: 'Connection Failed',
+        description: 'Could not start the Google Photos connection process. Please try again.',
+      });
     }
   };
 
