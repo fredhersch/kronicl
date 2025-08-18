@@ -43,6 +43,13 @@ export async function getAuthenticatedClient(): Promise<OAuth2Client | null> {
 
     const tokenData = tokenDoc.data();
     const refreshToken = tokenData?.refreshToken;
+    const scopes = tokenData?.scopes;
+    
+    console.log(`🔍 Token data for user ${uid}:`, {
+      hasRefreshToken: !!refreshToken,
+      scopes: scopes,
+      tokenExpiry: tokenData?.tokenExpiry
+    });
     
     if (!refreshToken) {
       console.log(`Refresh token missing for user ${uid}`);
@@ -53,6 +60,8 @@ export async function getAuthenticatedClient(): Promise<OAuth2Client | null> {
     oauth2Client.setCredentials({
       refresh_token: refreshToken,
     });
+    
+    console.log(`✅ OAuth client configured with scopes: ${scopes}`);
     
     // The library will automatically handle refreshing the access token if it's expired.
     return oauth2Client;

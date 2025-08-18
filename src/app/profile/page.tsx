@@ -133,21 +133,34 @@ export default function ProfilePage() {
                         </CardHeader>
                         <CardContent>
                             <div className="flex items-center justify-between p-4 border rounded-lg">
-                                <div>
-                                    <h3 className="font-semibold">Google Photos</h3>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold flex items-center gap-2">
+                                        <GoogleIcon />
+                                        Google Photos
+                                    </h3>
                                     <div className={`flex items-center gap-1.5 text-sm ${isConnected ? 'text-green-600' : 'text-muted-foreground'}`}>
                                         {isConnected ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                                         <span>{isConnected ? 'Connected' : 'Not Connected'}</span>
                                     </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {isConnected 
+                                            ? 'You can import photos from your Google Photos library' 
+                                            : 'Connect to import photos from your Google Photos library'
+                                        }
+                                    </p>
                                 </div>
-                                {isConnected ? (
-                                    <Button variant="destructive" size="sm" onClick={unlinkGoogleAccount}>Disconnect</Button>
-                                ) : (
-                                    <Button size="sm" onClick={linkGoogleAccount}>
-                                        <LinkIcon className="w-4 h-4 mr-2" />
-                                        Connect
-                                    </Button>
-                                )}
+                                <div className="flex flex-col gap-2">
+                                    {isConnected ? (
+                                        <Button variant="destructive" size="sm" onClick={unlinkGoogleAccount}>
+                                            Disconnect
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" onClick={linkGoogleAccount}>
+                                            <LinkIcon className="w-4 h-4 mr-2" />
+                                            Connect
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

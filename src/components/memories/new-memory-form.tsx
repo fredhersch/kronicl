@@ -380,6 +380,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             media: mediaItems,
             audioUrl,
             createdAt: serverTimestamp(),
+            createdBy: userId,
+            clientCreatedAt: new Date().toISOString(), // Client-side timestamp
             latitude: latitude,
             longitude: longitude,
             sentiment: sentiment,

@@ -39,14 +39,20 @@ export function GooglePhotosPicker({ open, onOpenChange, onSelect }: GooglePhoto
       const fetchPhotos = async () => {
         setIsLoading(true);
         try {
+          console.log('🔄 Fetching Google Photos...');
           const items = await getGooglePhotos();
+          console.log(`📸 Received ${items.length} items from Google Photos API`);
           setMediaItems(items);
+          
+          if (items.length === 0) {
+            console.log('⚠️ No photos returned from API - this might indicate an authentication or permission issue');
+          }
         } catch (error) {
-          console.error('Failed to fetch Google Photos:', error);
+          console.error('❌ Failed to fetch Google Photos:', error);
           toast({
             variant: 'destructive',
             title: 'Failed to fetch photos',
-            description: 'Could not load your Google Photos library. Please ensure you have granted permission.',
+            description: 'Could not load your Google Photos library. Please check the console for details.',
           });
           onOpenChange(false);
         } finally {
@@ -135,7 +141,15 @@ export function GooglePhotosPicker({ open, onOpenChange, onSelect }: GooglePhoto
             ) : (
                  <div className="col-span-full h-full flex flex-col items-center justify-center text-muted-foreground text-center p-4">
                     <p>No photos found in your library.</p>
-                    <p className="text-xs mt-2">Make sure you have granted permissions and have photos in your Google Photos account.</p>
+                    <p className="text-xs mt-2">This could mean:</p>
+                    <ul className="text-xs mt-1 space-y-1 text-left max-w-sm mx-auto">
+                      <li>• You haven't connected your Google Photos account yet</li>
+                      <li>• Your Google Photos account is empty</li>
+                      <li>• There's an authentication issue</li>
+                    </ul>
+                    <p className="text-xs mt-2 text-blue-600">
+                      💡 Check the browser console for detailed error information
+                    </p>
                  </div>
             )}
           </div>

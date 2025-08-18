@@ -49,6 +49,26 @@ export async function GET(req: NextRequest) {
     
     // --- Securely store tokens in Firestore ---
     const { refresh_token, access_token, expiry_date, scope } = tokens;
+    
+    console.log('🔍 OAuth callback - received tokens:', {
+      hasRefreshToken: !!refresh_token,
+      hasAccessToken: !!access_token,
+      scopes: scope,
+      scopesType: typeof scope,
+      scopesLength: Array.isArray(scope) ? scope.length : 'not array',
+      tokenExpiry: expiry_date
+    });
+    
+    // Log the full scope string for debugging
+    if (scope) {
+      console.log('📋 Full scope string received:', scope);
+      if (typeof scope === 'string') {
+        const scopeArray = scope.split(' ');
+        console.log('📋 Scopes as array:', scopeArray);
+        console.log('🔍 Photos Library scope included:', scopeArray.includes('https://www.googleapis.com/auth/photoslibrary.readonly'));
+      }
+    }
+    
     if (!refresh_token) {
         // This happens if the user has previously granted consent and is not re-prompted.
         // The 'prompt: consent' in the auth URL helps prevent this.
@@ -63,6 +83,8 @@ export async function GET(req: NextRequest) {
       tokenExpiry: expiry_date,
       scopes: scope,
     });
+    
+    console.log('✅ Tokens stored successfully in Firestore');
 
     // --- Redirect to profile page with success message ---
     return NextResponse.redirect(new URL('/profile?status=success&message=Successfully+connected+to+Google+Photos!', req.url));

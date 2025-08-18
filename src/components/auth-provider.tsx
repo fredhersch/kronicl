@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, ReactNode, useCallback } from 'react';
@@ -13,7 +12,10 @@ import {
     signInWithPopup,
     updateProfile,
     getAuth,
-    Auth
+    Auth,
+    getRedirectResult,
+    linkWithRedirect,
+    unlink,
 } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
@@ -27,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPhotosConnected, setIsPhotosConnected] = useState(false);
+  const [isLinkingFlow, setIsLinkingFlow] = useState(false); // <-- Add this state
   const router = useRouter();
   const { toast } = useToast();
 
@@ -43,8 +46,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(authInstance);
     setDb(dbInstance);
     setStorage(storageInstance);
+
+    // Note: getRedirectResult is only needed for redirect-based flows
+    // Since we're using signInWithPopup, this logic is not needed here
+
   }, []);
 
+  // Separate effect to handle Photos linking redirects (only when isLinkingFlow is true)
+  useEffect(() => {
+    if (!auth || !isLinkingFlow) return;
+    
+    // This handles the result from linkWithRedirect for Photos linking
+    getRedirectResult(auth)
+      .then(async (result: any) => {
+        if (result) {
+          // User successfully linked Google Photos
+          await handleUser(result.user);
+          const message = 'Your Google Photos account has been successfully linked.';
+          router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
+          setIsLinkingFlow(false);
+        }
+      })
+      .catch((error: any) => {
+        console.error("Error processing Photos linking redirect result:", error);
+        let message = 'Could not complete the Google Photos connection. Please try again.';
+        if (error.code === 'auth/credential-already-in-use') {
+          message = 'This Google account is already associated with another user.';
+        }
+        router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
+        setIsLinkingFlow(false);
+      });
+  }, [auth, isLinkingFlow, router]);
+
+  const handleUser = async (rawUser: FirebaseUser | null) => {
+    if (rawUser) {
+        const idToken = await rawUser.getIdToken();
+        try {
+            setUser(rawUser);
+            checkGooglePhotosConnection(rawUser.uid);
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${idToken}`,
+                },
+            });
+        } catch (err) {
+            console.error("Session cookie creation failed:", err);
+        }
+    } else {
+        setUser(null);
+        setIsPhotosConnected(false);
+        fetch('/api/auth/session', { method: 'DELETE' }).catch(err => console.error("Session cookie deletion failed:", err));
+    }
+    setLoading(false);
+  };
 
   const checkGooglePhotosConnection = useCallback(async (uid: string) => {
     if (!db) return false;
@@ -69,6 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         'Authorization': `Bearer ${idToken}`,
                     },
                 });
+                // Redirect to main page after successful authentication
+                router.push('/');
             } catch (err) {
                 console.error("Session cookie creation failed:", err);
             }
@@ -87,10 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!auth) return;
     setLoading(true);
     const googleProvider = new GoogleAuthProvider();
-    googleProvider.addScope('https://www.googleapis.com/auth/photoslibrary.readonly');
     try {
         await signInWithPopup(auth, googleProvider);
-        router.push('/');
+        // The popup will close automatically, and onAuthStateChanged will handle the user state
+        // No manual redirect needed - Firebase handles the flow
     } catch(error: any) {
         console.error("Google sign in failed:", error);
         toast({
@@ -158,26 +215,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const linkGoogleAccount = () => {
-    window.location.href = '/api/google/auth';
+  const linkGoogleAccount = async () => {
+    if (!auth?.currentUser) return;
+    const googleProvider = new GoogleAuthProvider();
+    setIsLinkingFlow(true); // <-- Set the flag here
+    try {
+        await linkWithRedirect(auth.currentUser, googleProvider);
+    } catch (error) {
+        console.error("Error starting Google link flow:", error);
+        setIsLinkingFlow(false); // Reset on error
+        toast({
+            variant: 'destructive',
+            title: 'Connection Failed',
+            description: 'Could not start the Google connection process. Please try again.',
+        });
+    }
   };
 
   const unlinkGoogleAccount = async () => {
     if (!auth?.currentUser || !db) return;
+    console.log(`Attempting to unlink Google Photos for user: ${auth.currentUser.uid}`);
     try {
         const tokenDocRef = doc(db, 'google-photos', auth.currentUser.uid);
         await deleteDoc(tokenDocRef);
         setIsPhotosConnected(false);
+        console.log(`✅ Successfully deleted token document for user: ${auth.currentUser.uid}`);
         toast({
             title: 'Disconnected from Google Photos',
-            description: 'Your account has been unlinked.',
+            description: 'Your account has been successfully unlinked.',
         });
     } catch (error) {
-        console.error("Error unlinking Google Account", error);
+        console.error("❌ Error unlinking Google Account:", error);
         toast({
             variant: 'destructive',
             title: 'Failed to unlink account',
-            description: 'There was a problem unlinking your account.',
+            description: 'There was a problem unlinking your account. Check the console for details.',
         });
     }
   };

@@ -16,4 +16,7 @@ export type Memory = {
   transcription?: string;
   tags: string[];
   sentiment: 'positive' | 'negative' | 'neutral';
+  createdAt: any; // Firestore serverTimestamp
+  clientCreatedAt: string; // Client-side ISO timestamp
+  createdBy?: string; // Optional: who created the memory
 };

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { CalendarDays, MapPin, Mic, FileText, Smile, Meh, Frown, Tag, Music, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCreationTime } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '../ui/carousel';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
@@ -121,6 +122,13 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
                 <div>
                   <h3 className="font-semibold">Date</h3>
                   <p className="text-muted-foreground">{format(new Date(memory.date), 'PPP p')}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CalendarDays className="w-5 h-5 mt-1 text-accent" />
+                <div>
+                  <h3 className="font-semibold">Created</h3>
+                  <p className="text-muted-foreground">{formatCreationTime(memory.clientCreatedAt)}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">

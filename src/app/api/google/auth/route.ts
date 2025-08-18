@@ -14,13 +14,27 @@ export async function GET(req: NextRequest) {
     // Generate a random state value for security
     const state = Math.random().toString(36).substring(2);
 
+    // Define the scopes we need - try both array and space-separated formats
+    const scopesArray = [
+      'https://www.googleapis.com/auth/photoslibrary.readonly',
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ];
+    
+    const scopesString = scopesArray.join(' ');
+    
+    console.log('🔍 OAuth scopes being requested (array):', scopesArray);
+    console.log('🔍 OAuth scopes being requested (string):', scopesString);
+    
     // The URL where the user will be redirected to for consent
     const authorizationUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline', // 'offline' gets a refresh token
-      scope: ['https://www.googleapis.com/auth/photoslibrary.readonly'],
+      scope: scopesString, // Use space-separated string format
       prompt: 'consent', // Force consent screen to ensure refresh token is provided
       state: state,
     });
+    
+    console.log('🔗 Generated authorization URL:', authorizationUrl);
 
     // Store the state in a secure, HTTP-only cookie to prevent CSRF attacks
     const cookieStore = await cookies();

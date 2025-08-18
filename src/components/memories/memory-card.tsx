@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { CalendarDays, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
+import { getShortCreationDate } from '@/lib/utils';
 
 interface MemoryCardProps {
   memory: Memory;
@@ -42,6 +43,14 @@ export function MemoryCard({ memory }: MemoryCardProps) {
                   {format(new Date(memory.date), 'MMM d, yyyy')}
                 </time>
               </div>
+              {memory.clientCreatedAt && (
+                <div className="flex items-center gap-1.5">
+                  <CalendarDays className="w-4 h-4" />
+                  <span className="text-muted-foreground">
+                    {getShortCreationDate(memory.clientCreatedAt)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 truncate">
                 <MapPin className="w-4 h-4" />
                 <span className="truncate">{memory.location}</span>
