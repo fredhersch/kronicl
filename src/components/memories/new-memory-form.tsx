@@ -11,7 +11,7 @@ import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Button } from '@/components/ui/button';
@@ -322,89 +322,57 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         });
         return;
     }
+
     setIsUploading(true);
     setUploadProgress(0);
-    
-    const mediaItems: { type: 'image' | 'video'; url: string }[] = [];
-    let audioUrl = '';
 
-    const uploadTasks: Promise<void>[] = [];
-    const filesToUpload = [...mediaFiles];
-    if (audioBlob) {
-        filesToUpload.push(new File([audioBlob], 'audio.webm', { type: 'audio/webm' }));
-    }
+    const uploadFile = (file: File, path: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const storageRef = ref(storage, path);
+            const uploadTask = uploadBytesResumable(storageRef, file);
 
-    const fileProgress: { [key: string]: number } = {};
-    const totalSize = filesToUpload.reduce((acc, file) => acc + file.size, 0);
-
-    const updateProgress = () => {
-        const uploadedBytes = Object.values(fileProgress).reduce((acc, bytes) => acc + bytes, 0);
-        const progress = totalSize > 0 ? (uploadedBytes / totalSize) * 100 : 0;
-        setUploadProgress(progress);
-    };
-
-    // Upload media files
-    for (const file of mediaFiles) {
-        const fileId = uuidv4();
-        const fileName = `${fileId}-${file.name}`;
-        const storageRef = ref(storage, `memories/${userId}/${fileName}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        const taskPromise = new Promise<void>((resolve, reject) => {
             uploadTask.on('state_changed',
                 (snapshot) => {
-                    fileProgress[fileName] = snapshot.bytesTransferred;
-                    updateProgress();
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    // This progress reporting is simplified. A more complex UI would track progress per file.
+                    setUploadProgress(progress);
                 },
                 (error) => {
-                    console.error("Upload failed for", fileName, error);
-                    delete fileProgress[fileName];
-                    updateProgress();
+                    console.error(`Upload failed for ${file.name}:`, error);
+                    toast({
+                        variant: 'destructive',
+                        title: `Upload failed for ${file.name}`,
+                        description: `Could not upload file. Please try again. Error: ${error.message}`,
+                    });
                     reject(error);
                 },
                 async () => {
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    mediaItems.push({
-                        type: file.type.startsWith('image/') ? 'image' : 'video',
-                        url: downloadURL
-                    });
-                    resolve();
+                    resolve(downloadURL);
                 }
             );
         });
-        uploadTasks.push(taskPromise);
-    }
-    
-    // Upload audio file
-    if (audioBlob) {
-        const audioId = uuidv4();
-        const audioName = `${audioId}.webm`;
-        const audioRef = ref(storage, `memories/${userId}/audio/${audioName}`);
-        const uploadTask = uploadBytesResumable(audioRef, audioBlob);
-        
-        const taskPromise = new Promise<void>((resolve, reject) => {
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    fileProgress[audioName] = snapshot.bytesTransferred;
-                    updateProgress();
-                },
-                (error) => {
-                    console.error("Audio upload failed:", error);
-                    delete fileProgress[audioName];
-                    updateProgress();
-                    reject(error);
-                },
-                async () => {
-                    audioUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                    resolve();
-                }
-            );
-        });
-        uploadTasks.push(taskPromise);
-    }
+    };
 
     try {
-        await Promise.all(uploadTasks);
+        const mediaItems: Memory['media'] = await Promise.all(
+            mediaFiles.map(async (file) => {
+                const fileId = uuidv4();
+                const fileName = `${fileId}-${file.name}`;
+                const url = await uploadFile(file, `memories/${userId}/${fileName}`);
+                return {
+                    type: file.type.startsWith('image/') ? 'image' : 'video',
+                    url: url,
+                    dataAiHint: file.type.startsWith('image/') ? 'user uploaded' : undefined,
+                };
+            })
+        );
+        
+        let audioUrl = '';
+        if (audioBlob) {
+            const audioId = uuidv4();
+            audioUrl = await uploadFile(new File([audioBlob], `${audioId}.webm`, { type: 'audio/webm' }), `memories/${userId}/audio/${audioId}.webm`);
+        }
 
         await addDoc(collection(db, 'memories'), {
             ...data,
@@ -422,12 +390,13 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             description: 'Your new memory has been saved.',
         });
         router.push('/');
+
     } catch (error) {
         console.error("Error creating memory:", error);
         toast({
             variant: 'destructive',
             title: 'Failed to create memory',
-            description: 'There was an error saving your memory. Please try again.',
+            description: 'There was an error saving your memory. Please ensure all files uploaded successfully and try again.',
         });
     } finally {
         setIsUploading(false);
