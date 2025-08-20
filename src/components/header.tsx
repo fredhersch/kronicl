@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { PlusCircle, Search, Home, User, Plus, LogOut, Settings } from 'lucide-react';
+import { PlusCircle, Search, Home, User, Plus, LogOut, Settings, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from './icons/logo';
@@ -70,6 +70,13 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
                   <span className="text-xs text-muted-foreground">{user?.email}</span>
                 </div>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <Link href="/logs" className="w-full">
+                <DropdownMenuItem className="cursor-pointer">
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>View Logs</span>
+                </DropdownMenuItem>
+              </Link>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />

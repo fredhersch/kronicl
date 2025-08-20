@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/auth-provider';
+import { PageLogger } from '@/components/page-logger';
 
 export const metadata: Metadata = {
   title: 'MemoryLane',
@@ -29,6 +30,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <AuthProvider>
+          <PageLogger />
           {children}
           <Toaster />
         </AuthProvider>

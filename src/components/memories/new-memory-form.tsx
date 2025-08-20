@@ -10,6 +10,16 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { analyzeSentiment } from '@/ai/flows/analyze-sentiment';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { usePageLogging } from '@/hooks/use-page-logging';
+import { logger, logInfo, logError, logDebug, logWarn } from '@/lib/logger-client';
+import { 
+  validateTranscriptionResponse, 
+  validateTitleSummaryResponse, 
+  validateSentimentResponse, 
+  createFallbackValues,
+  logAIServiceCall,
+  logAIServiceResult
+} from '@/lib/ai-debug-utils';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -67,6 +77,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const router = useRouter();
   const { db, storage } = useAuth();
   const { toast } = useToast();
+  const { logPageEvent, getCurrentPageInfo } = usePageLogging();
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -184,11 +195,72 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const tags = form.watch('tags');
 
   const addMediaFiles = (newFiles: File[]) => {
+    // Get current page info for context
+    const pageInfo = getCurrentPageInfo();
+    
+    // Log file selection with page context
+    logInfo('Media files selected', {
+      component: 'NewMemoryForm',
+      function: 'addMediaFiles',
+      action: 'files-selected',
+      userId: userId,
+      pageContext: {
+        currentPath: pageInfo.currentPath,
+        sessionId: pageInfo.sessionId
+      },
+      newFilesCount: newFiles.length,
+      newFiles: newFiles.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: new Date(file.lastModified).toISOString()
+      })),
+      existingFilesCount: mediaFiles.length,
+      timestamp: new Date().toISOString()
+    });
+
+    // Log page event for file selection
+    logPageEvent('Media Files Selected', {
+      userId: userId,
+      newFilesCount: newFiles.length,
+      totalFilesAfter: mediaFiles.length + newFiles.length,
+      fileTypes: newFiles.map(f => f.type),
+      totalSize: newFiles.reduce((total, file) => total + file.size, 0),
+      pagePath: pageInfo.currentPath
+    });
+
     const combinedFiles = [...mediaFiles, ...newFiles];
     const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
     const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
 
+    // Log file validation
+    logDebug('Validating file selection', {
+      component: 'NewMemoryForm',
+      function: 'addMediaFiles',
+      action: 'validation-check',
+      userId: userId,
+      totalFiles: combinedFiles.length,
+      imageCount,
+      videoCount,
+      isValid: !(videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3),
+      timestamp: new Date().toISOString()
+    });
+
     if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
+      // Log validation failure
+      logWarn('Invalid file selection', {
+        component: 'NewMemoryForm',
+        function: 'addMediaFiles',
+        action: 'validation-failed',
+        userId: userId,
+        imageCount,
+        videoCount,
+        reason: videoCount > 1 ? 'too-many-videos' : 
+                (videoCount > 0 && imageCount > 0) ? 'mixed-media-types' : 
+                'too-many-images',
+        timestamp: new Date().toISOString()
+      });
+
       toast({
         variant: 'destructive',
         title: 'Invalid selection',
@@ -199,62 +271,388 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     
     setMediaFiles(combinedFiles);
 
+    // Log successful file addition
+    logInfo('Media files added successfully', {
+      component: 'NewMemoryForm',
+      function: 'addMediaFiles',
+      action: 'files-added',
+      userId: userId,
+      totalFiles: combinedFiles.length,
+      imageCount,
+      videoCount,
+      timestamp: new Date().toISOString()
+    });
+
     if (combinedFiles.length > 0 && mediaFiles.length === 0) {
-      form.setValue('date', new Date(combinedFiles[0].lastModified));
+      const firstFileDate = new Date(combinedFiles[0].lastModified);
+      form.setValue('date', firstFileDate);
+      
+      // Log date auto-set from file
+      logDebug('Date auto-set from file metadata', {
+        component: 'NewMemoryForm',
+        function: 'addMediaFiles',
+        action: 'date-auto-set',
+        userId: userId,
+        fileName: combinedFiles[0].name,
+        fileDate: firstFileDate.toISOString(),
+        timestamp: new Date().toISOString()
+      });
     }
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      addMediaFiles(Array.from(event.target.files));
+      const files = Array.from(event.target.files);
+      const pageInfo = getCurrentPageInfo();
+      
+      // Log file input change with page context
+      logDebug('File input changed', {
+        component: 'NewMemoryForm',
+        function: 'handleFileChange',
+        action: 'input-change',
+        userId: userId,
+        pageContext: {
+          currentPath: pageInfo.currentPath,
+          sessionId: pageInfo.sessionId
+        },
+        filesSelected: files.length,
+        files: files.map(file => ({
+          name: file.name,
+          size: file.size,
+          type: file.type
+        })),
+        timestamp: new Date().toISOString()
+      });
+
+      // Log page event for file input change
+      logPageEvent('File Input Changed', {
+        userId: userId,
+        filesSelected: files.length,
+        fileNames: files.map(f => f.name),
+        totalSize: files.reduce((total, file) => total + file.size, 0),
+        pagePath: pageInfo.currentPath
+      });
+
+      addMediaFiles(files);
+      
       // Reset file input to allow re-selection of the same file if needed after removal
       event.target.value = '';
+      
+      // Log file input reset
+      logDebug('File input reset', {
+        component: 'NewMemoryForm',
+        function: 'handleFileChange',
+        action: 'input-reset',
+        userId: userId,
+        timestamp: new Date().toISOString()
+      });
     }
   };
 
   const startRecording = async () => {
+    // Get current page info for context
+    const pageInfo = getCurrentPageInfo();
+    
+    // Log recording start attempt with page context
+    logInfo('Audio recording started', {
+      component: 'NewMemoryForm',
+      function: 'startRecording',
+      action: 'recording-start',
+      userId: userId,
+      pageContext: {
+        currentPath: pageInfo.currentPath,
+        sessionId: pageInfo.sessionId
+      },
+      timestamp: new Date().toISOString()
+    });
+
+    // Log page event for recording start
+    logPageEvent('Audio Recording Started', {
+      userId: userId,
+      pagePath: pageInfo.currentPath,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Log microphone access success
+      logDebug('Microphone access granted', {
+        component: 'NewMemoryForm',
+        function: 'startRecording',
+        action: 'microphone-access',
+        userId: userId,
+        streamActive: stream.active,
+        trackCount: stream.getTracks().length,
+        timestamp: new Date().toISOString()
+      });
+
       mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       const chunks: BlobPart[] = [];
+      
       mediaRecorderRef.current.ondataavailable = (event) => {
         chunks.push(event.data);
+        
+        // Log data available
+        logDebug('Audio data available', {
+          component: 'NewMemoryForm',
+          function: 'startRecording',
+          action: 'data-available',
+          userId: userId,
+          dataSize: event.data.size,
+          chunksCount: chunks.length,
+          timestamp: new Date().toISOString()
+        });
       };
+      
       mediaRecorderRef.current.onstop = async () => {
+        // Log recording stop
+        logInfo('Audio recording stopped', {
+          component: 'NewMemoryForm',
+          function: 'startRecording',
+          action: 'recording-stop',
+          userId: userId,
+          totalChunks: chunks.length,
+          recordingTime: recordingTime,
+          timestamp: new Date().toISOString()
+        });
+
         const blob = new Blob(chunks, { type: 'audio/webm' });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
 
+        // Log audio blob creation
+        logDebug('Audio blob created', {
+          component: 'NewMemoryForm',
+          function: 'startRecording',
+          action: 'blob-created',
+          userId: userId,
+          blobSize: blob.size,
+          blobType: blob.type,
+          timestamp: new Date().toISOString()
+        });
+
         setIsProcessingAI(true);
-        try {
-          const audioDataUri = await blobToDataUri(blob);
-          const { transcription } = await transcribeAudio({ audioDataUri });
-          form.setValue('transcription', transcription);
+        
+        // Log AI processing start
+        logInfo('AI processing started for audio', {
+          component: 'NewMemoryForm',
+          function: 'startRecording',
+          action: 'ai-processing-start',
+          userId: userId,
+          audioBlobSize: blob.size,
+          timestamp: new Date().toISOString()
+        });
 
-          const [{ title, summary, tags }, { sentiment }] = await Promise.all([
-             generateMemoryTitleSummaryTags({ transcription }),
-             analyzeSentiment({ transcription })
-          ]);
-          
-          form.setValue('title', title);
-          form.setValue('summary', summary);
-          form.setValue('tags', tags);
-          setSentiment(sentiment);
+                  try {
+            const audioDataUri = await blobToDataUri(blob);
+            
+            // Log audio conversion
+            logDebug('Audio converted to data URI', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'audio-conversion',
+              userId: userId,
+              dataUriLength: audioDataUri.length,
+              timestamp: new Date().toISOString()
+            });
 
-        } catch (error) {
-          console.error("AI Processing Error:", error);
-          toast({
-            variant: 'destructive',
-            title: 'AI Processing Failed',
-            description: 'Could not process audio. Please try again.',
-          });
-        } finally {
-          setIsProcessingAI(false);
-        }
+            // Call transcribeAudio with proper error handling
+            logAIServiceCall('TranscriptionService', 'transcribe', { audioDataUriLength: audioDataUri.length }, { userId });
+            
+            const transcriptionResult = await transcribeAudio({ audioDataUri });
+            
+            // Log raw transcription result for debugging
+            logDebug('Raw transcription result received', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'transcription-result-received',
+              userId: userId,
+              hasResult: !!transcriptionResult,
+              resultType: typeof transcriptionResult,
+              resultKeys: transcriptionResult ? Object.keys(transcriptionResult) : [],
+              resultStringified: JSON.stringify(transcriptionResult),
+              timestamp: new Date().toISOString()
+            });
+            
+            // Validate transcription result using utility function
+            if (!validateTranscriptionResponse(transcriptionResult, { userId, audioDataUriLength: audioDataUri.length })) {
+              throw new Error('Transcription service returned invalid response');
+            }
+            
+            const { transcription } = transcriptionResult;
+            
+            // Log transcription success
+            logInfo('Audio transcription completed', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'transcription-completed',
+              userId: userId,
+              transcriptionLength: transcription.length,
+              timestamp: new Date().toISOString()
+            });
+
+            form.setValue('transcription', transcription);
+
+            // Call AI services with proper error handling
+            logAIServiceCall('TitleSummaryService', 'generate', { transcriptionLength: transcription.length }, { userId });
+            logAIServiceCall('SentimentService', 'analyze', { transcriptionLength: transcription.length }, { userId });
+            
+            const [titleSummaryResult, sentimentResult] = await Promise.all([
+               generateMemoryTitleSummaryTags({ transcription }),
+               analyzeSentiment({ transcription })
+            ]);
+            
+            // Log raw AI service results for debugging
+            logDebug('Raw AI service results received', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'ai-results-received',
+              userId: userId,
+              titleSummaryResult: {
+                hasResult: !!titleSummaryResult,
+                resultType: typeof titleSummaryResult,
+                resultKeys: titleSummaryResult ? Object.keys(titleSummaryResult) : [],
+                resultStringified: JSON.stringify(titleSummaryResult)
+              },
+              sentimentResult: {
+                hasResult: !!sentimentResult,
+                resultType: typeof sentimentResult,
+                resultKeys: sentimentResult ? Object.keys(sentimentResult) : [],
+                resultStringified: JSON.stringify(sentimentResult)
+              },
+              timestamp: new Date().toISOString()
+            });
+            
+            // Validate results using utility functions
+            if (!validateTitleSummaryResponse(titleSummaryResult, { userId, transcriptionLength: transcription.length })) {
+              throw new Error('Title/summary generation service returned invalid response');
+            }
+            
+            if (!validateSentimentResponse(sentimentResult, { userId, transcriptionLength: transcription.length })) {
+              throw new Error('Sentiment analysis service returned invalid response');
+            }
+            
+            const { title, summary, tags } = titleSummaryResult;
+            const { sentiment } = sentimentResult;
+            
+            // Log AI generation success
+            logInfo('AI content generation completed', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'ai-generation-completed',
+              userId: userId,
+              generatedTitle: title,
+              generatedSummary: summary,
+              generatedTags: tags,
+              generatedSentiment: sentiment,
+              timestamp: new Date().toISOString()
+            });
+            
+            form.setValue('title', title);
+            form.setValue('summary', summary);
+            form.setValue('tags', tags);
+            setSentiment(sentiment);
+
+          } catch (error) {
+            // Log AI processing error with detailed context
+            logError('AI processing failed', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'ai-processing-failed',
+              userId: userId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              errorStack: error instanceof Error ? error.stack : undefined,
+              errorType: error instanceof Error ? error.constructor.name : typeof error,
+              context: {
+                audioBlobSize: blob.size,
+                audioBlobType: blob.type,
+                timestamp: new Date().toISOString()
+              }
+            }, error instanceof Error ? error : undefined);
+
+            console.error("AI Processing Error:", error);
+            
+            // Provide more specific error messages based on the error type
+            let errorTitle = 'AI Processing Failed';
+            let errorDescription = 'Could not process audio. Please try again.';
+            
+            if (error instanceof Error) {
+              if (error.message.includes('Transcription service')) {
+                errorTitle = 'Transcription Failed';
+                errorDescription = 'Could not convert audio to text. Please try again.';
+              } else if (error.message.includes('Title/summary generation')) {
+                errorTitle = 'Content Generation Failed';
+                errorDescription = 'Could not generate title and summary. Please try again.';
+              } else if (error.message.includes('Sentiment analysis')) {
+                errorTitle = 'Sentiment Analysis Failed';
+                errorDescription = 'Could not analyze audio sentiment. Please try again.';
+              }
+            }
+            
+            toast({
+              variant: 'destructive',
+              title: errorTitle,
+              description: errorDescription,
+            });
+            
+            // Log fallback behavior
+            logInfo('AI processing failed, audio recording still available', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'fallback-available',
+              userId: userId,
+              audioBlobSize: blob.size,
+              audioBlobType: blob.type,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Create fallback values using utility function
+            const fallbackValues = createFallbackValues(blob);
+            
+            form.setValue('title', fallbackValues.title);
+            form.setValue('summary', fallbackValues.summary);
+            form.setValue('tags', fallbackValues.tags);
+            setSentiment(fallbackValues.sentiment as Memory['sentiment']);
+            
+            // Log fallback values set
+            logInfo('Fallback values set for failed AI processing', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'fallback-values-set',
+              userId: userId,
+              fallbackValues,
+              timestamp: new Date().toISOString()
+            });
+            
+          } finally {
+            setIsProcessingAI(false);
+            
+            // Log AI processing completion
+            logInfo('AI processing completed', {
+              component: 'NewMemoryForm',
+              function: 'startRecording',
+              action: 'ai-processing-completed',
+              userId: userId,
+              timestamp: new Date().toISOString()
+            });
+          }
       };
+      
       mediaRecorderRef.current.start();
       setIsRecording(true);
       setRecordingTime(0);
+      
+      // Log recording start success
+      logInfo('Recording started successfully', {
+        component: 'NewMemoryForm',
+        function: 'startRecording',
+        action: 'recording-started',
+        userId: userId,
+        mediaRecorderState: mediaRecorderRef.current.state,
+        timestamp: new Date().toISOString()
+      });
+
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           if (prev >= 300) {
@@ -265,6 +663,17 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         });
       }, 1000);
     } catch (error) {
+      // Log recording start error
+      logError('Recording start failed', {
+        component: 'NewMemoryForm',
+        function: 'startRecording',
+        action: 'recording-failed',
+        userId: userId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      }, error instanceof Error ? error : undefined);
+
       toast({
         variant: 'destructive',
         title: 'Recording failed',
@@ -275,11 +684,69 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      // Get current page info for context
+      const pageInfo = getCurrentPageInfo();
+      
+      // Log recording stop request with page context
+      logInfo('Recording stop requested', {
+        component: 'NewMemoryForm',
+        function: 'stopRecording',
+        action: 'stop-requested',
+        userId: userId,
+        pageContext: {
+          currentPath: pageInfo.currentPath,
+          sessionId: pageInfo.sessionId
+        },
+        recordingTime: recordingTime,
+        mediaRecorderState: mediaRecorderRef.current.state,
+        timestamp: new Date().toISOString()
+      });
+
+      // Log page event for recording stop
+      logPageEvent('Audio Recording Stopped', {
+        userId: userId,
+        recordingTime,
+        pagePath: pageInfo.currentPath,
+        timestamp: new Date().toISOString()
+      });
+
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
+        
+        // Log interval cleared
+        logDebug('Recording interval cleared', {
+          component: 'NewMemoryForm',
+          function: 'stopRecording',
+          action: 'interval-cleared',
+          userId: userId,
+          finalRecordingTime: recordingTime,
+          timestamp: new Date().toISOString()
+        });
       }
+      
+      // Log recording stopped
+      logInfo('Recording stopped successfully', {
+        component: 'NewMemoryForm',
+        function: 'stopRecording',
+        action: 'recording-stopped',
+        userId: userId,
+        finalRecordingTime: recordingTime,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      // Log invalid stop request
+      logWarn('Invalid recording stop request', {
+        component: 'NewMemoryForm',
+        function: 'stopRecording',
+        action: 'invalid-stop-request',
+        userId: userId,
+        hasMediaRecorder: !!mediaRecorderRef.current,
+        isRecording,
+        timestamp: new Date().toISOString()
+      });
     }
   };
   
@@ -301,7 +768,58 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   };
   
   const onSubmit = async (data: FormValues) => {
+    // Get current page info for context
+    const pageInfo = getCurrentPageInfo();
+    
+    // Log form submission start with page context
+    logInfo('Memory form submission started', {
+      component: 'NewMemoryForm',
+      function: 'onSubmit',
+      action: 'submission-start',
+      userId: userId,
+      pageContext: {
+        currentPath: pageInfo.currentPath,
+        previousPath: pageInfo.previousPath,
+        searchParams: pageInfo.searchParams,
+        sessionId: pageInfo.sessionId
+      },
+      mediaFileCount: mediaFiles.length,
+      hasAudioBlob: !!audioBlob,
+      formData: {
+        title: data.title,
+        summary: data.summary,
+        date: data.date.toISOString(),
+        location: data.location,
+        tags: data.tags,
+        latitude,
+        longitude
+      },
+      timestamp: new Date().toISOString()
+    });
+
+    // Log page event for form submission
+    logPageEvent('Memory Form Submission Started', {
+      userId: userId,
+      formData: {
+        title: data.title,
+        mediaFileCount: mediaFiles.length,
+        hasAudioBlob: !!audioBlob,
+        location: data.location
+      },
+      pagePath: pageInfo.currentPath
+    });
+
     if (!db || !storage) {
+        logError('Firebase services not available', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'services-unavailable',
+          userId: userId,
+          hasDb: !!db,
+          hasStorage: !!storage,
+          timestamp: new Date().toISOString()
+        });
+
         toast({
             variant: 'destructive',
             title: 'Services not available',
@@ -310,6 +828,14 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
     if (mediaFiles.length === 0) {
+        logWarn('No media files selected', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'no-media-selected',
+          userId: userId,
+          timestamp: new Date().toISOString()
+        });
+
         toast({
             variant: 'destructive',
             title: 'No media selected',
@@ -318,21 +844,105 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         return;
     }
 
+    // Log upload preparation with page context
+    logInfo('Preparing file uploads', {
+      component: 'NewMemoryForm',
+      function: 'onSubmit',
+      action: 'upload-preparation',
+      userId: userId,
+      pageContext: {
+        currentPath: pageInfo.currentPath,
+        sessionId: pageInfo.sessionId
+      },
+      mediaFiles: mediaFiles.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })),
+      audioBlobSize: audioBlob?.size || 0,
+      timestamp: new Date().toISOString()
+    });
+
+    // Log page event for file upload preparation
+    logPageEvent('File Upload Preparation Started', {
+      userId: userId,
+      fileCount: mediaFiles.length,
+      totalFileSize: mediaFiles.reduce((total, file) => total + file.size, 0),
+      hasAudio: !!audioBlob,
+      pagePath: pageInfo.currentPath
+    });
+
     setIsUploading(true);
     setUploadProgress(0);
 
     const uploadFile = (file: File, path: string): Promise<string> => {
         return new Promise((resolve, reject) => {
+            // Log upload initiation
+            logInfo('File upload initiated', {
+                component: 'NewMemoryForm',
+                function: 'uploadFile',
+                action: 'upload-start',
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                filePath: path,
+                userId: userId,
+                timestamp: new Date().toISOString()
+            });
+
             const storageRef = ref(storage, path);
             const uploadTask = uploadBytesResumable(storageRef, file);
+
+            // Log upload task creation
+            logDebug('Upload task created', {
+                component: 'NewMemoryForm',
+                function: 'uploadFile',
+                action: 'task-created',
+                fileName: file.name,
+                storagePath: path,
+                uploadTaskId: uploadTask.snapshot?.ref?.name || 'unknown',
+                timestamp: new Date().toISOString()
+            });
 
             uploadTask.on('state_changed',
                 (snapshot) => {
                     const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    const bytesTransferred = snapshot.bytesTransferred;
+                    const totalBytes = snapshot.totalBytes;
+                    const state = snapshot.state;
+                    
+                    // Log upload progress
+                    logDebug('Upload progress update', {
+                        component: 'NewMemoryForm',
+                        function: 'uploadFile',
+                        action: 'progress-update',
+                        fileName: file.name,
+                        progress: Math.round(progress),
+                        bytesTransferred,
+                        totalBytes,
+                        state,
+                        uploadTaskId: snapshot.ref.name,
+                        timestamp: new Date().toISOString()
+                    });
+
                     // This progress reporting is simplified. A more complex UI would track progress per file.
                     setUploadProgress(progress);
                 },
                 (error) => {
+                    // Log upload error
+                    logError('File upload failed', {
+                        component: 'NewMemoryForm',
+                        function: 'uploadFile',
+                        action: 'upload-failed',
+                        fileName: file.name,
+                        filePath: path,
+                        error: error.message,
+                        errorCode: error.code,
+                        errorStack: error.stack,
+                        userId: userId,
+                        timestamp: new Date().toISOString()
+                    }, error);
+
                     console.error(`Upload failed for ${file.name}:`, error);
                     toast({
                         variant: 'destructive',
@@ -342,19 +952,115 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     reject(error);
                 },
                 async () => {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    resolve(downloadURL);
+                    try {
+                        // Log upload completion
+                        logInfo('File upload completed successfully', {
+                            component: 'NewMemoryForm',
+                            function: 'uploadFile',
+                            action: 'upload-completed',
+                            fileName: file.name,
+                            filePath: path,
+                            uploadTaskId: uploadTask.snapshot.ref.name,
+                            finalBytesTransferred: uploadTask.snapshot.bytesTransferred,
+                            totalBytes: uploadTask.snapshot.totalBytes,
+                            userId: userId,
+                            timestamp: new Date().toISOString()
+                        });
+
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        
+                        // Log download URL retrieval
+                        logDebug('Download URL retrieved', {
+                            component: 'NewMemoryForm',
+                            function: 'uploadFile',
+                            action: 'download-url-retrieved',
+                            fileName: file.name,
+                            downloadURL: downloadURL,
+                            userId: userId,
+                            timestamp: new Date().toISOString()
+                        });
+
+                        resolve(downloadURL);
+                    } catch (downloadError) {
+                        // Log download URL error
+                        logError('Failed to get download URL', {
+                            component: 'NewMemoryForm',
+                            function: 'uploadFile',
+                            action: 'download-url-failed',
+                            fileName: file.name,
+                            filePath: path,
+                            error: downloadError instanceof Error ? downloadError.message : 'Unknown error',
+                            errorStack: downloadError instanceof Error ? downloadError.stack : undefined,
+                            userId: userId,
+                            timestamp: new Date().toISOString()
+                        }, downloadError instanceof Error ? downloadError : undefined);
+
+                        reject(downloadError);
+                    }
                 }
             );
         });
     };
 
     try {
+        // Log media upload start
+        logInfo('Starting media file uploads', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'media-upload-start',
+          userId: userId,
+          totalFiles: mediaFiles.length,
+          timestamp: new Date().toISOString()
+        });
+
         const mediaItems: Memory['media'] = await Promise.all(
-            mediaFiles.map(async (file) => {
+            mediaFiles.map(async (file, index) => {
                 const fileId = uuidv4();
                 const fileName = `${fileId}-${file.name}`;
+                
+                // Log individual file upload start with page context
+                logDebug('Starting individual file upload', {
+                  component: 'NewMemoryForm',
+                  function: 'onSubmit',
+                  action: 'individual-upload-start',
+                  userId: userId,
+                  pageContext: {
+                    currentPath: pageInfo.currentPath,
+                    sessionId: pageInfo.sessionId
+                  },
+                  fileIndex: index + 1,
+                  totalFiles: mediaFiles.length,
+                  fileName: file.name,
+                  fileId: fileId,
+                  storagePath: `memories/${userId}/${fileName}`,
+                  timestamp: new Date().toISOString()
+                });
+
+                // Log page event for individual file upload
+                logPageEvent('Individual File Upload Started', {
+                  userId: userId,
+                  fileIndex: index + 1,
+                  fileName: file.name,
+                  fileSize: file.size,
+                  fileType: file.type,
+                  pagePath: pageInfo.currentPath
+                });
+
                 const url = await uploadFile(file, `memories/${userId}/${fileName}`);
+                
+                // Log individual file upload completion
+                logDebug('Individual file upload completed', {
+                  component: 'NewMemoryForm',
+                  function: 'onSubmit',
+                  action: 'individual-upload-completed',
+                  userId: userId,
+                  fileIndex: index + 1,
+                  fileName: file.name,
+                  fileId: fileId,
+                  downloadUrl: url,
+                  timestamp: new Date().toISOString()
+                });
+
                 return {
                     type: file.type.startsWith('image/') ? 'image' : 'video',
                     url: url,
@@ -363,13 +1069,70 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             })
         );
         
+        // Log all media uploads completed
+        logInfo('All media files uploaded successfully', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'media-upload-completed',
+          userId: userId,
+          totalFiles: mediaFiles.length,
+          mediaItems: mediaItems.map(item => ({
+            type: item.type,
+            hasUrl: !!item.url
+          })),
+          timestamp: new Date().toISOString()
+        });
+        
         let audioUrl = '';
         if (audioBlob) {
+            // Log audio upload start
+            logInfo('Starting audio upload', {
+              component: 'NewMemoryForm',
+              function: 'onSubmit',
+              action: 'audio-upload-start',
+              userId: userId,
+              audioBlobSize: audioBlob.size,
+              audioType: audioBlob.type,
+              timestamp: new Date().toISOString()
+            });
+
             const audioId = uuidv4();
             audioUrl = await uploadFile(new File([audioBlob], `${audioId}.webm`, { type: 'audio/webm' }), `memories/${userId}/audio/${audioId}.webm`);
+            
+            // Log audio upload completion
+            logInfo('Audio upload completed', {
+              component: 'NewMemoryForm',
+              function: 'onSubmit',
+              action: 'audio-upload-completed',
+              userId: userId,
+              audioId: audioId,
+              audioUrl: audioUrl,
+              timestamp: new Date().toISOString()
+            });
         }
 
-        await addDoc(collection(db, 'memories'), {
+        // Log database save preparation
+        logInfo('Preparing to save memory to database', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'database-save-prep',
+          userId: userId,
+          memoryData: {
+            title: data.title,
+            summary: data.summary,
+            date: data.date.toISOString(),
+            location: data.location,
+            tags: data.tags,
+            mediaCount: mediaItems.length,
+            hasAudio: !!audioUrl,
+            latitude,
+            longitude,
+            sentiment
+          },
+          timestamp: new Date().toISOString()
+        });
+
+        const memoryDoc = await addDoc(collection(db, 'memories'), {
             ...data,
             userId,
             media: mediaItems,
@@ -382,13 +1145,79 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             sentiment: sentiment,
         });
 
+        // Log successful database save
+        logInfo('Memory saved to database successfully', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'database-save-success',
+          userId: userId,
+          memoryId: memoryDoc.id,
+          memoryData: {
+            title: data.title,
+            mediaCount: mediaItems.length,
+            hasAudio: !!audioUrl
+          },
+          timestamp: new Date().toISOString()
+        });
+
         toast({
             title: 'Memory Created!',
             description: 'Your new memory has been saved.',
         });
+        
+        // Log navigation with page context
+        logInfo('Navigating to dashboard after successful memory creation', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'navigation-success',
+          userId: userId,
+          memoryId: memoryDoc.id,
+          pageContext: {
+            currentPath: pageInfo.currentPath,
+            sessionId: pageInfo.sessionId
+          },
+          fromPath: '/memories/new',
+          toPath: '/',
+          timestamp: new Date().toISOString()
+        });
+
+        // Log page event for navigation
+        logPageEvent('Memory Creation Success - Navigating to Dashboard', {
+          userId: userId,
+          memoryId: memoryDoc.id,
+          fromPath: pageInfo.currentPath,
+          toPath: '/',
+          mediaCount: mediaItems.length,
+          hasAudio: !!audioUrl
+        });
+        
         router.push('/');
 
     } catch (error) {
+        // Log comprehensive error information
+        logError('Memory creation failed', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'creation-failed',
+          userId: userId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorStack: error instanceof Error ? error.stack : undefined,
+          errorType: error instanceof Error ? error.constructor.name : typeof error,
+          context: {
+            mediaFileCount: mediaFiles.length,
+            hasAudioBlob: !!audioBlob,
+            uploadProgress: uploadProgress,
+            formData: {
+              title: data.title,
+              summary: data.summary,
+              date: data.date.toISOString(),
+              location: data.location,
+              tags: data.tags
+            }
+          },
+          timestamp: new Date().toISOString()
+        }, error instanceof Error ? error : undefined);
+
         console.error("Error creating memory:", error);
         toast({
             variant: 'destructive',
@@ -396,6 +1225,16 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             description: 'There was an error saving your memory. Please ensure all files uploaded successfully and try again.',
         });
     } finally {
+        // Log upload completion (success or failure)
+        logInfo('Memory creation process completed', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'process-completed',
+          userId: userId,
+          uploadProgress: uploadProgress,
+          timestamp: new Date().toISOString()
+        });
+
         setIsUploading(false);
     }
   };

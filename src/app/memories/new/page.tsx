@@ -2,6 +2,8 @@
 import { NewMemoryForm } from '@/components/memories/new-memory-form';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { usePageLogging } from '@/hooks/use-page-logging';
+import { logInfo } from '@/lib/logger-client';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -10,12 +12,25 @@ import { useEffect } from 'react';
 export default function NewMemoryPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { logPageEvent } = usePageLogging();
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  // Log page-specific events
+  useEffect(() => {
+    if (user) {
+      logPageEvent('New Memory Page Loaded', {
+        userId: user.uid,
+        pagePath: '/memories/new',
+        pageTitle: 'Create New Memory',
+        userEmail: user.email
+      });
+    }
+  }, [user, logPageEvent]);
 
   if (loading || !user) {
     return (
