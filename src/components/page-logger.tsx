@@ -1,15 +1,23 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { usePageLogging } from '@/hooks/use-page-logging';
 import { logInfo } from '@/lib/logger-client';
+
+/**
+ * Fallback component that doesn't use any dynamic hooks
+ * This ensures the component can render safely during SSR
+ */
+function PageLoggerFallback() {
+  return null;
+}
 
 /**
  * Page Logger Component
  * Automatically logs page access, navigation, and user interactions
  * Add this to your layout for comprehensive page tracking
  */
-export function PageLogger() {
+function PageLoggerContent() {
   const { logPageEvent, getCurrentPageInfo } = usePageLogging();
 
   // Log additional page-specific information
@@ -45,6 +53,14 @@ export function PageLogger() {
 
   // This component doesn't render anything visible
   return null;
+}
+
+export function PageLogger() {
+  return (
+    <Suspense fallback={<PageLoggerFallback />}>
+      <PageLoggerContent />
+    </Suspense>
+  );
 }
 
 export default PageLogger;

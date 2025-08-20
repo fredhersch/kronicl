@@ -16,6 +16,19 @@ interface PageAccessContext {
  * Provides comprehensive tracking for debugging navigation issues
  */
 export function usePageLogging() {
+  // Ensure this hook only runs on the client side
+  if (typeof window === 'undefined') {
+    return {
+      logPageEvent: () => {},
+      getCurrentPageInfo: () => ({
+        currentPath: '',
+        previousPath: '',
+        searchParams: '',
+        sessionId: ''
+      })
+    };
+  }
+
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const previousPathRef = useRef<string | undefined>();

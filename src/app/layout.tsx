@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/auth-provider';
 import { PageLogger } from '@/components/page-logger';
+import { Suspense } from 'react';
 
 export const metadata: Metadata = {
   title: 'MemoryLane',
@@ -30,7 +31,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <AuthProvider>
-          <PageLogger />
+          <Suspense fallback={null}>
+            <PageLogger />
+          </Suspense>
           {children}
           <Toaster />
         </AuthProvider>
