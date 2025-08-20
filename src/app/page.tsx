@@ -34,8 +34,40 @@ export default function Dashboard() {
             date: data.date.toDate().toISOString(),
           } as Memory;
         });
-        setMemories(userMemories);
-        setFilteredMemories(userMemories);
+        
+        // Sort memories by creation date in descending order (newest first)
+        const sortedMemories = userMemories.sort((a, b) => {
+          // Try to sort by createdAt timestamp first (most reliable)
+          if (a.createdAt && b.createdAt) {
+            let dateA: Date;
+            let dateB: Date;
+            
+            // Handle Firestore Timestamp objects
+            if (a.createdAt.toDate && typeof a.createdAt.toDate === 'function') {
+              dateA = a.createdAt.toDate();
+              dateB = b.createdAt.toDate();
+            } else {
+              dateA = new Date(a.createdAt);
+              dateB = new Date(b.createdAt);
+            }
+            return dateB.getTime() - dateA.getTime(); // Descending order
+          }
+          
+          // Fallback to clientCreatedAt if createdAt is not available
+          if (a.clientCreatedAt && b.clientCreatedAt) {
+            const dateA = new Date(a.clientCreatedAt);
+            const dateB = new Date(b.clientCreatedAt);
+            return dateB.getTime() - dateA.getTime(); // Descending order
+          }
+          
+          // Final fallback to memory date
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          return dateB.getTime() - dateA.getTime(); // Descending order
+        });
+        
+        setMemories(sortedMemories);
+        setFilteredMemories(sortedMemories);
         setDataLoading(false);
       }, (error) => {
         console.error("Error fetching memories: ", error);
