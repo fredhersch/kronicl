@@ -24,7 +24,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Map } from '../map';
-import { GooglePhotosPicker } from './google-photos-picker';
 import {
   Upload,
   Mic,
@@ -38,14 +37,11 @@ import {
   Image as ImageIcon,
   Video,
   Loader2,
-  Cloud,
   Search,
-  Link as LinkIcon,
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
-import Link from 'next/link';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -69,7 +65,7 @@ const blobToDataUri = (blob: Blob): Promise<string> => {
 
 export function NewMemoryForm({ userId }: { userId: string }) {
   const router = useRouter();
-  const { isGooglePhotosConnected, db, storage } = useAuth();
+  const { db, storage } = useAuth();
   const { toast } = useToast();
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -84,7 +80,6 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
   const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
   
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -435,7 +430,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Upload className="w-6 h-6"/> Media</CardTitle>
-                <CardDescription>Select up to 3 images or 1 video for your memory. You can also select from Google Photos.</CardDescription>
+                <CardDescription>Select up to 3 images or 1 video for your memory.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid gap-4">
@@ -460,27 +455,6 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                             <input type="file" multiple accept="image/*,video/*" className="sr-only" onChange={handleFileChange} />
                          </label>
                     </div>
-
-                    {isGooglePhotosConnected() ? (
-                        <>
-                            <Button type="button" variant="outline" onClick={() => setIsPickerOpen(true)}><Cloud className="mr-2 h-4 w-4"/> Select from Google Photos</Button>
-                            <GooglePhotosPicker
-                                open={isPickerOpen}
-                                onOpenChange={setIsPickerOpen}
-                                onSelect={addMediaFiles}
-                            />
-                        </>
-                    ) : (
-                        <div className="p-4 bg-muted/50 rounded-lg flex flex-col items-center text-center gap-2">
-                             <p className="text-sm text-muted-foreground">Connect your Google account to select photos directly from your library.</p>
-                             <Link href="/profile">
-                                <Button variant="secondary">
-                                    <LinkIcon className="mr-2 h-4 w-4" />
-                                    Connect to Google Photos
-                                </Button>
-                             </Link>
-                        </div>
-                    )}
                 </div>
             </CardContent>
         </Card>

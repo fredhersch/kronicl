@@ -1,14 +1,39 @@
 # Project To-Do List
 
-Based on the project blueprint, here is a list of tasks to complete:
+## Core Features
+- [x] User Authentication: Firebase Auth with Google and Email/Password
+- [x] User Profiles: Store user information in Firestore
+- [x] Memory Creation: Form to create new memories with media upload
+- [x] Memory Storage: Store memories in Firestore with media in Firebase Storage
+- [x] Memory Display: Show memories in a list/grid format
+- [x] Memory Details: Individual memory view with all information
+- [x] Media Upload: Support for images and videos
+- [x] Audio Recording: Record audio notes with transcription
+- [x] AI Integration: Generate titles, summaries, and tags from audio
+- [x] Location Services: Map integration with geolocation
+- [x] Responsive Design: Mobile-first design with Tailwind CSS
+- [x] Real-time Updates: Live updates using Firebase
+- [x] Search and Filter: Find memories by various criteria
+- [x] User Settings: Profile management and preferences
 
-- [x] Memory Creation: Allow users to select photos and videos from their device to create a memory. User can select up to 3 images or 1 video
-- [x] Audio Note Enrichment: Enable users to add audio notes (up to 300 seconds) to their memories, review a transcription and edit the transcribed text.
-- [x] AI-Powered Enrichment: Automatically generate a title and short summary for each memory based on the transcribed text. Analyze the text for sentiment and generate relevant tags. Allow users to edit generated content using AI tool.
-- [x] Metadata Management: Enable users to manage and edit the 'memory_date' and 'location' associated with each memory. The date will default to the file's last modified time. The location should be based on the users current location by default and show the name of the place (e.g. Singapore) with a location pin on a map. The user can search for places and this will update the pin on the map
-- [x] Upload Progress: When uploading the media, show a progress bar and estimate of upload time
-- [ ] Error Handling: Catch all errors and provide clear error messages back to the user
-- [x] Memory Display: Display memories in a list or gallery view, with key information and a link to play the audio. Open a detailed read-only view upon tapping.
-- [x] Memory Search: Implement a search bar to filter memories based on title, summary, transcription text, or tags.
-- [x] User Authentication: Require users to sign in with their Google account to access the app, ensuring memories are private and secure.
-- [ ] Cloud App Linking: Able to link to Google Photos to select specific images or video from there. Should store reference to the files and not the raw media themselves
+## Advanced Features
+- [ ] Memory Sharing: Share memories with other users
+- [ ] Memory Collections: Group memories into albums or categories
+- [ ] Advanced Search: Full-text search with filters
+- [ ] Memory Analytics: Insights about memory patterns
+- [ ] Export/Import: Backup and restore memories
+- [ ] Offline Support: Work without internet connection
+- [ ] Push Notifications: Reminders and updates
+- [ ] Social Features: Like, comment, and interact with memories
+
+## Technical Improvements
+- [ ] Performance Optimization: Lazy loading and caching
+- [ ] Error Handling: Comprehensive error handling and user feedback
+- [ ] Testing: Unit and integration tests
+- [ ] Documentation: API documentation and user guides
+- [ ] Security: Enhanced security measures
+- [ ] Monitoring: Analytics and error tracking
+- [ ] Accessibility: WCAG compliance and screen reader support
+
+## Completed Features (Previously Planned)
+- [x] ~~Google Photos Integration~~ - Removed as requested, focusing on local media upload only

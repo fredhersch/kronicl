@@ -13,5 +13,11 @@ service cloud.firestore {
     match /google-photos/{userId} {
       allow read, write, delete: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // Allow users to manage their own user profile
+    match /user-profiles/{userId} {
+      allow read, write, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

@@ -15,9 +15,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => void;
   signUpWithEmail: (email: string, password: string) => void;
   signOut: () => void;
-  linkGoogleAccount: () => void;
-  unlinkGoogleAccount: () => void;
-  isGooglePhotosConnected: () => boolean;
+  getUserProfile: () => Promise<any>;
   // Make Firebase services available through the context
   auth: Auth | null;
   db: Firestore | null;

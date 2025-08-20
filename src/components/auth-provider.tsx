@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, ReactNode, useCallback } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     onAuthStateChanged,
@@ -13,23 +13,18 @@ import {
     updateProfile,
     getAuth,
     Auth,
-    getRedirectResult,
-    linkWithRedirect,
-    unlink,
 } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, doc, getDoc } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { app } from '@/lib/firebase-client';
 import { useToast } from '@/hooks/use-toast';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { AuthContext } from '@/hooks/use-auth';
+import { createUserProfileClient } from '@/lib/user-profile-client';
 
 // This provider component will handle all the client-side Firebase logic.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPhotosConnected, setIsPhotosConnected] = useState(false);
-  const [isLinkingFlow, setIsLinkingFlow] = useState(false); // <-- Add this state
   const router = useRouter();
   const { toast } = useToast();
 
@@ -46,44 +41,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(authInstance);
     setDb(dbInstance);
     setStorage(storageInstance);
-
-    // Note: getRedirectResult is only needed for redirect-based flows
-    // Since we're using signInWithPopup, this logic is not needed here
-
   }, []);
-
-  // Separate effect to handle Photos linking redirects (only when isLinkingFlow is true)
-  useEffect(() => {
-    if (!auth || !isLinkingFlow) return;
-    
-    // This handles the result from linkWithRedirect for Photos linking
-    getRedirectResult(auth)
-      .then(async (result: any) => {
-        if (result) {
-          // User successfully linked Google Photos
-          await handleUser(result.user);
-          const message = 'Your Google Photos account has been successfully linked.';
-          router.push(`/profile?status=success&message=${encodeURIComponent(message)}`);
-          setIsLinkingFlow(false);
-        }
-      })
-      .catch((error: any) => {
-        console.error("Error processing Photos linking redirect result:", error);
-        let message = 'Could not complete the Google Photos connection. Please try again.';
-        if (error.code === 'auth/credential-already-in-use') {
-          message = 'This Google account is already associated with another user.';
-        }
-        router.push(`/profile?status=error&message=${encodeURIComponent(message)}`);
-        setIsLinkingFlow(false);
-      });
-  }, [auth, isLinkingFlow, router]);
 
   const handleUser = async (rawUser: FirebaseUser | null) => {
     if (rawUser) {
         const idToken = await rawUser.getIdToken();
         try {
             setUser(rawUser);
-            checkGooglePhotosConnection(rawUser.uid);
+            
+            // Create or update user profile in Firestore
+            try {
+              await createUserProfileClient(rawUser.uid, {
+                displayName: rawUser.displayName || 'Anonymous User',
+                email: rawUser.email || '',
+                photoURL: rawUser.photoURL || undefined
+              });
+              console.log('✅ User profile created/updated successfully');
+            } catch (profileError) {
+              console.error('❌ Failed to create/update user profile:', profileError);
+              // Don't fail the auth if profile creation fails
+            }
+            
             await fetch('/api/auth/session', {
                 method: 'POST',
                 headers: {
@@ -95,60 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     } else {
         setUser(null);
-        setIsPhotosConnected(false);
         fetch('/api/auth/session', { method: 'DELETE' }).catch(err => console.error("Session cookie deletion failed:", err));
     }
     setLoading(false);
   };
-
-  const checkGooglePhotosConnection = useCallback(async (uid: string) => {
-    if (!db) return false;
-    
-    try {
-      const tokenDoc = await getDoc(doc(db, 'google-photos', uid));
-      
-      if (!tokenDoc.exists()) {
-        console.log(`No Google Photos token document found for user ${uid}`);
-        setIsPhotosConnected(false);
-        return false;
-      }
-      
-      const tokenData = tokenDoc.data();
-      const hasRefreshToken = !!tokenData?.refreshToken;
-      const hasAccessToken = !!tokenData?.accessToken;
-      // Fix: Check for the new photoslibrary scope, not readonly
-      const hasValidScopes = tokenData?.scopes?.includes('https://www.googleapis.com/auth/photoslibrary');
-      
-      console.log(`🔍 Google Photos connection check for user ${uid}:`, {
-        hasRefreshToken,
-        hasAccessToken,
-        hasValidScopes,
-        scopes: tokenData?.scopes
-      });
-      
-      // Only consider connected if we have all required tokens and scopes
-      const isConnected = hasRefreshToken && hasAccessToken && hasValidScopes;
-      
-      setIsPhotosConnected(isConnected);
-      
-      if (!isConnected) {
-        console.log(`❌ Invalid or incomplete Google Photos tokens for user ${uid}`);
-        // Clean up invalid tokens
-        if (tokenDoc.exists()) {
-          await deleteDoc(doc(db, 'google-photos', uid));
-          console.log(`✅ Cleaned up invalid token document for user ${uid}`);
-        }
-      } else {
-        console.log(`✅ Valid Google Photos connection found for user ${uid}`);
-      }
-      
-      return isConnected;
-    } catch (error) {
-      console.error(`Error checking Google Photos connection for user ${uid}:`, error);
-      setIsPhotosConnected(false);
-      return false;
-    }
-  }, [db]);
 
   useEffect(() => {
     if (!auth) return; // Don't run auth logic until the auth instance is ready.
@@ -158,7 +86,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const idToken = await user.getIdToken();
             try {
                 setUser(user);
-                checkGooglePhotosConnection(user.uid);
+                
+                // Create or update user profile in Firestore for ALL sign-ins
+                try {
+                  // Check if this is a new user (created within the last minute)
+                  const isNewUser = user.metadata.creationTime && 
+                    (Date.now() - new Date(user.metadata.creationTime).getTime()) < 60000;
+                  
+                  // Only include photoURL if it exists
+                  const profileData: any = {
+                    displayName: user.displayName || 'Anonymous User',
+                    email: user.email || ''
+                  };
+                  
+                  if (user.photoURL) {
+                    profileData.photoURL = user.photoURL;
+                  }
+                  
+                  await createUserProfileClient(user.uid, profileData);
+                  
+                  if (isNewUser) {
+                    console.log('✅ New user profile created successfully');
+                  } else {
+                    console.log('✅ Existing user profile updated successfully');
+                  }
+                } catch (profileError) {
+                  console.error('❌ Failed to create/update user profile:', profileError);
+                  // Don't fail the auth if profile creation fails
+                }
+                
                 await fetch('/api/auth/session', {
                     method: 'POST',
                     headers: {
@@ -172,14 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         } else {
             setUser(null);
-            setIsPhotosConnected(false);
             fetch('/api/auth/session', { method: 'DELETE' }).catch(err => console.error("Session cookie deletion failed:", err));
         }
         setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [auth, checkGooglePhotosConnection, router, toast]);
+  }, [auth, router, toast]);
 
   const signInWithGoogle = async () => {
     if (!auth) return;
@@ -226,6 +181,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
         const displayName = email.split('@')[0];
         await updateProfile(newUser, { displayName });
+        
+        // Create user profile in Firestore
+        try {
+          // Only include photoURL if it exists
+          const profileData: any = {
+            displayName,
+            email: newUser.email || ''
+          };
+          
+          if (newUser.photoURL) {
+            profileData.photoURL = newUser.photoURL;
+          }
+          
+          await createUserProfileClient(newUser.uid, profileData);
+          console.log('✅ User profile created successfully');
+        } catch (profileError) {
+          console.error('❌ Failed to create user profile:', profileError);
+          // Don't fail the signup if profile creation fails
+        }
+        
         // After signup, Firebase automatically signs the user in.
         // The onAuthStateChanged listener will handle the user state update.
         router.push('/');
@@ -256,58 +231,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const linkGoogleAccount = async () => {
-    if (!auth?.currentUser) return;
+  const getUserProfile = async () => {
+    if (!user || !db) return null;
     
-    // Check if already connected to avoid duplicate linking
-    if (isPhotosConnected) {
-      toast({
-        title: 'Already Connected',
-        description: 'Your Google Photos account is already connected.',
-      });
-      return;
-    }
-    
-    setIsLinkingFlow(true);
     try {
-      // Use the API route instead of Firebase linking
-      // This will handle the OAuth flow for Google Photos API access
-      window.location.href = '/api/google/auth';
+      const profileDoc = await getDoc(doc(db, 'user-profiles', user.uid));
+      if (profileDoc.exists()) {
+        return profileDoc.data();
+      }
+      return null;
     } catch (error) {
-      console.error("Error starting Google Photos connection:", error);
-      setIsLinkingFlow(false);
-      toast({
-        variant: 'destructive',
-        title: 'Connection Failed',
-        description: 'Could not start the Google Photos connection process. Please try again.',
-      });
+      console.error('Error getting user profile:', error);
+      return null;
     }
-  };
-
-  const unlinkGoogleAccount = async () => {
-    if (!auth?.currentUser || !db) return;
-    console.log(`Attempting to unlink Google Photos for user: ${auth.currentUser.uid}`);
-    try {
-        const tokenDocRef = doc(db, 'google-photos', auth.currentUser.uid);
-        await deleteDoc(tokenDocRef);
-        setIsPhotosConnected(false);
-        console.log(`✅ Successfully deleted token document for user: ${auth.currentUser.uid}`);
-        toast({
-            title: 'Disconnected from Google Photos',
-            description: 'Your account has been successfully unlinked.',
-        });
-    } catch (error) {
-        console.error("❌ Error unlinking Google Account:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Failed to unlink account',
-            description: 'There was a problem unlinking your account. Check the console for details.',
-        });
-    }
-  };
-
-  const isGooglePhotosConnected = () => {
-    return isPhotosConnected;
   };
 
   const value = {
@@ -317,9 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithEmail,
     signUpWithEmail,
     signOut,
-    linkGoogleAccount,
-    unlinkGoogleAccount,
-    isGooglePhotosConnected,
+    getUserProfile,
     // We pass the initialized services through the context
     auth,
     db,

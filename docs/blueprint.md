@@ -1,24 +1,91 @@
-# **App Name**: MemoryLane
+# MemoryLane Project Blueprint
 
-## Core Features:
+## Project Overview
+MemoryLane is a personal memory management application that allows users to create, store, and organize their memories with rich media content, AI-powered enrichment, and intelligent organization.
 
-- Memory Creation: Allow users to select photos and videos from their device to create a memory. User can select up to 3 images or 1 video
-- Audio Note Enrichment: Enable users to add audio notes (up to 300 seconds) to their memories, review a transcription and edit the transcribed text.
-- AI-Powered Enrichment: Automatically generate a title and short summary for each memory based on the transcribed text. Analyze the text for sentiment and generate relevant tags. Allow users to edit generated content using AI tool.
-- Metadata Management: Enable users to manage and edit the 'memory_date' and 'location' associated with each memory. The date will default to the file's last modified time. The location should be based on the users current location by default and show the name of the place (e.g. Singapore) with a location pin on a map. The user can search for places and this will update the pin on the map
-- Upload Progress: When uploading the media, show a progress bar and estimate of upload time
-- Error Handling: Catch all errors and provide clear error messages back to the user
-- Memory Display: Display memories in a list or gallery view, with key information and a link to play the audio. Open a detailed read-only view upon tapping.
-- Memory Search: Implement a search bar to filter memories based on title, summary, transcription text, or tags.
-- User Authentication: Require users to sign in with their Google account to access the app, ensuring memories are private and secure.
-- Cloud App Linking: Able to link to Google Photos to select specific images or video from there. Should store reference to the files and not the raw media themselves
+## Core Features
 
-## Style Guidelines:
+### User Management
+- User authentication with Google and email/password
+- User profiles with customizable settings
+- Secure data isolation between users
 
-- Primary color: A muted teal (#45A29E), evoking feelings of tranquility and nostalgia.
-- Background color: Warm beige (#F5F5DC) to provide a comforting and familiar backdrop, like aged paper.
-- Accent color: Dusty rose (#BC8F8F) for interactive elements, symbolizing love, remembrance, and gentle affection.
-- Font: 'Lora' (serif) for all UI text, chosen for its readability and its classic, slightly romantic feel.
-- Use simple, hand-drawn style icons for a personal and intimate feel.
-- Employ a clean, minimalist, and spacious design. Utilize rounded corners and subtle shadows to create depth and a sense of tangible memories.
-- Incorporate smooth, subtle transitions and gentle micro-interactions to provide a sense of fluidity and connection to the past.
+### Memory Creation
+- Upload photos and videos (up to 3 images or 1 video per memory)
+- Record audio notes with automatic transcription
+- AI-powered content generation (titles, summaries, tags)
+- Location tagging with map integration
+- Date and time management
+
+### Memory Storage
+- Firebase Firestore for structured data
+- Firebase Storage for media files
+- Real-time synchronization
+- Offline-first architecture
+
+### Memory Organization
+- Search and filter capabilities
+- Tag-based categorization
+- Chronological organization
+- Location-based grouping
+
+### AI Integration
+- Automatic transcription of audio notes
+- Intelligent title and summary generation
+- Sentiment analysis
+- Tag suggestion and management
+
+## Technical Architecture
+
+### Frontend
+- Next.js 14 with App Router
+- React with TypeScript
+- Tailwind CSS for styling
+- Responsive design for all devices
+
+### Backend
+- Firebase Authentication
+- Firestore database
+- Firebase Storage
+- Serverless API routes
+
+### AI Services
+- Google Gemini API for content generation
+- Speech-to-text transcription
+- Natural language processing
+
+### External Integrations
+- Google Maps API for location services
+- Firebase for backend services
+
+## User Experience
+
+### Design Principles
+- Clean, intuitive interface
+- Mobile-first responsive design
+- Accessibility compliance
+- Fast and responsive performance
+
+### User Flow
+1. User signs in with Google or email
+2. Creates new memories with media upload
+3. Records audio notes for context
+4. AI generates content automatically
+5. User reviews and edits generated content
+6. Memory is saved and organized
+7. Easy search and discovery of past memories
+
+## Security & Privacy
+- User data isolation
+- Secure authentication
+- Encrypted data transmission
+- Privacy-focused design
+- No data sharing with third parties
+
+## Future Enhancements
+- Memory sharing capabilities
+- Advanced search algorithms
+- Memory analytics and insights
+- Offline functionality
+- Push notifications
+- Social features

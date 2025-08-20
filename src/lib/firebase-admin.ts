@@ -1,3 +1,16 @@
+/**
+ * ⚠️ SERVER-ONLY FILE ⚠️
+ * 
+ * This file contains Node.js specific code and should NEVER be imported in:
+ * - React components
+ * - Client-side hooks
+ * - Any browser-side code
+ * 
+ * Only import this file in:
+ * - API routes (/app/api/route.ts)
+ * - Server actions
+ * - Other server-only code
+ */
 
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
