@@ -6,18 +6,12 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { Logo } from '../icons/logo';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form';
 
 const GoogleIcon = () => (
     <svg className="w-5 h-5 mr-2" viewBox="0 0 48 48">
@@ -28,16 +22,8 @@ const GoogleIcon = () => (
     </svg>
 );
 
-const formSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email address.' }).min(1, { message: 'Email is required.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-
 export function LoginForm() {
-  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, loading } = useAuth();
+  const { user, signInWithGoogle, loading } = useAuth();
   const router = useRouter();
 
   // Redirect authenticated users to dashboard
@@ -47,27 +33,6 @@ export function LoginForm() {
     }
   }, [user, loading, router]);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
-  });
-
-  const onSubmit = (data: FormValues) => {
-    signInWithEmail(data.email, data.password);
-  };
-  
-  const handleSignUp = async () => {
-    // Manually trigger validation to show errors if needed
-    const isValid = await form.trigger();
-    if (isValid) {
-      const data = form.getValues();
-      signUpWithEmail(data.email, data.password);
-    }
-  };
-
   return (
     <Card className="w-full max-w-sm shadow-lg bg-card/80 backdrop-blur-sm border-border/20">
       <CardHeader className="text-center">
@@ -76,65 +41,25 @@ export function LoginForm() {
         </div>
         <CardTitle className="font-headline text-3xl">Welcome to MemoryLane</CardTitle>
         <CardDescription>
-          Sign in to begin capturing and cherishing your memories.
+          Sign in with Google to begin capturing and cherishing your memories.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <Label htmlFor="email">Email</Label>
-                  <FormControl>
-                    <Input id="email" type="email" placeholder="you@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                   <Label htmlFor="password">Password</Label>
-                   <FormControl>
-                    <Input id="password" type="password" placeholder="••••••••" {...field} />
-                   </FormControl>
-                   <FormMessage />
-                </FormItem>
-              )}
-            />
-             <div className="flex gap-2">
-                <Button type="submit" className="w-full" disabled={loading}>
-                    Sign In
-                </Button>
-                <Button type="button" variant="secondary" className="w-full" onClick={handleSignUp} disabled={loading}>
-                    Sign Up
-                </Button>
-            </div>
-          </form>
-        </Form>
-        <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-            </div>
-        </div>
+      <CardContent className="space-y-6">
         <Button
           variant="outline"
-          className="w-full h-12 text-base"
+          className="w-full h-12 text-base border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
           onClick={signInWithGoogle}
           disabled={loading}
         >
           <GoogleIcon />
-          Sign in with Google
+          {loading ? 'Signing in...' : 'Sign in with Google'}
         </Button>
+        
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Quick and secure authentication with your Google account
+          </p>
+        </div>
       </CardContent>
       <CardFooter>
         <p className="text-xs text-center text-muted-foreground">
