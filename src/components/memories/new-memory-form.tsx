@@ -425,38 +425,52 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-24">
         
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Upload className="w-6 h-6"/> Media</CardTitle>
-                <CardDescription>Select up to 3 images or 1 video for your memory.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="grid gap-4">
-                    <div className="flex flex-wrap gap-4">
-                        {mediaFiles.map((file, i) => (
-                            <div key={i} className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-border/40">
-                                {file.type.startsWith('image/') ? (
-                                    <Image src={URL.createObjectURL(file)} alt={file.name} layout="fill" objectFit="cover" />
-                                ) : (
-                                    <div className="w-full h-full bg-black flex items-center justify-center">
-                                        <Video className="w-10 h-10 text-white" />
-                                    </div>
-                                )}
-                                <Button size="icon" variant="destructive" className="absolute top-1 right-1 h-6 w-6 z-10" onClick={() => setMediaFiles(mediaFiles.filter((_, idx) => idx !== i))}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ))}
-                         <label className="w-32 h-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
-                            <ImageIcon className="w-10 h-10 text-muted-foreground" />
-                            <span className="text-xs mt-1 text-muted-foreground">Add Media</span>
-                            <input type="file" multiple accept="image/*,video/*" className="sr-only" onChange={handleFileChange} />
-                         </label>
-                    </div>
-                </div>
-            </CardContent>
+        {/* Media Upload - Mobile Optimized */}
+        <Card className="border-0 mobile-shadow">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Upload className="w-5 h-5" />
+              Media
+            </CardTitle>
+            <CardDescription className="text-sm">
+              Select up to 3 images or 1 video for your memory
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Media Grid - Mobile Optimized */}
+              <div className="grid grid-cols-3 gap-3">
+                {mediaFiles.map((file, i) => (
+                  <div key={i} className="relative aspect-square rounded-xl overflow-hidden border-2 border-border/40">
+                    {file.type.startsWith('image/') ? (
+                      <Image src={URL.createObjectURL(file)} alt={file.name} layout="fill" objectFit="cover" />
+                    ) : (
+                      <div className="w-full h-full bg-black flex items-center justify-center">
+                        <Video className="w-8 h-8 text-white" />
+                      </div>
+                    )}
+                    <Button 
+                      size="icon" 
+                      variant="destructive" 
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                      onClick={() => setMediaFiles(mediaFiles.filter((_, idx) => idx !== i))}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                
+                {/* Add Media Button - Mobile Optimized */}
+                <label className="aspect-square rounded-xl border-2 border-dashed border-primary/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                  <Upload className="w-8 h-8 text-primary/60" />
+                  <span className="text-xs mt-1 text-primary/60 font-medium">Add</span>
+                  <input type="file" multiple accept="image/*,video/*" className="sr-only" onChange={handleFileChange} />
+                </label>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
         <Card>
@@ -621,10 +635,22 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end pt-4">
-          <Button type="submit" size="lg" disabled={isUploading || isProcessingAI} className="min-w-[150px]">
-            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-            Save Memory
+        {/* Submit Button - Mobile Optimized */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-xl border-t mobile-safe-bottom">
+          <Button 
+            type="submit" 
+            size="lg" 
+            disabled={isUploading || isProcessingAI} 
+            className="w-full h-12 text-base font-medium"
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Saving Memory...
+              </>
+            ) : (
+              'Save Memory'
+            )}
           </Button>
         </div>
       </form>

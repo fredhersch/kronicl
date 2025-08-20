@@ -2,64 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
-    Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-}
-
+/* Modern mobile-first design system */
 @layer base {
   :root {
-    --background: 0 0% 98%;
+    /* Enhanced color palette for mobile */
+    --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 178 40% 40%;
+    --primary: 178 40% 45%;
     --primary-foreground: 180 100% 99%;
-    --secondary: 0 0% 95%;
+    --secondary: 0 0% 96%;
     --secondary-foreground: 240 10% 3.9%;
-    --muted: 0 0% 95%;
+    --muted: 0 0% 96%;
     --muted-foreground: 240 4% 46%;
-    --accent: 0 11% 75%;
+    --accent: 178 40% 90%;
     --accent-foreground: 240 10% 3.9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 90%;
-    --input: 0 0% 92%;
-    --ring: 178 40% 40%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --input: 0 0% 96%;
+    --ring: 178 40% 45%;
+    --radius: 1rem;
+    
+    /* Mobile-specific variables */
+    --safe-area-top: env(safe-area-inset-top);
+    --safe-area-bottom: env(safe-area-inset-bottom);
+    --header-height: 4rem;
+    --bottom-nav-height: 4rem;
   }
+
   .dark {
-    --background: 220 13% 10%;
+    --background: 220 13% 8%;
     --foreground: 210 40% 98%;
-    --card: 220 13% 12%;
+    --card: 220 13% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 220 13% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 178 40% 50%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 0 11% 40%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --primary: 178 40% 55%;
+    --secondary: 217 33% 15%;
+    --muted: 217 33% 15%;
     --border: 217 33% 25%;
-    --input: 217 33% 20%;
-    --ring: 178 40% 50%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --input: 217 33% 18%;
   }
 }
 
@@ -67,7 +51,59 @@ body {
   * {
     @apply border-border;
   }
+  
+  html {
+    /* Prevent zoom on input focus on iOS */
+    -webkit-text-size-adjust: 100%;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+  }
+  
   body {
     @apply bg-background text-foreground;
+    /* Mobile-optimized font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+  }
+  
+  /* Mobile-optimized touch targets */
+  button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Smooth transitions for mobile */
+  * {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Mobile-specific utility classes */
+@layer utilities {
+  .mobile-safe-top {
+    padding-top: var(--safe-area-top);
+  }
+  
+  .mobile-safe-bottom {
+    padding-bottom: var(--safe-area-bottom);
+  }
+  
+  .mobile-header {
+    height: var(--header-height);
+  }
+  
+  .mobile-bottom-nav {
+    height: var(--bottom-nav-height);
+  }
+  
+  /* Mobile-optimized shadows */
+  .mobile-shadow {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+  
+  .mobile-shadow-lg {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
   }
 }
