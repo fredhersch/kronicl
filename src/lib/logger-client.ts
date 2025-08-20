@@ -25,16 +25,22 @@ async function sendLogsToServer(logs: any[]): Promise<void> {
 
     // Send each log individually to avoid payload size issues
     for (const log of logs) {
+      // Clean the log data before sending to avoid circular references
+      const cleanLog = {
+        level: log.level,
+        message: log.message,
+        context: { ...log.context }
+      };
+      
+      // Remove timestamp from context to avoid duplication
+      delete cleanLog.context.timestamp;
+      
       await fetch('/api/logs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          level: log.level,
-          message: log.message,
-          context: log.context
-        })
+        body: JSON.stringify(cleanLog)
       });
     }
   } catch (error) {
@@ -55,32 +61,43 @@ const originalCritical = logger.critical.bind(logger);
 // Enhanced logging methods that sync to server
 logger.debug = (message: string, context: LogContext = {}) => {
   originalDebug(message, context);
-  // Sync to server in background
-  debouncedSendLogs([{ level: LogLevel.DEBUG, message, context }]);
+  // Sync to server in background - clean the context to avoid issues
+  const cleanContext = { ...context };
+  delete cleanContext.timestamp;
+  debouncedSendLogs([{ level: LogLevel.DEBUG, message, context: cleanContext }]);
 };
 
 logger.info = (message: string, context: LogContext = {}) => {
   originalInfo(message, context);
-  // Sync to server in background
-  debouncedSendLogs([{ level: LogLevel.INFO, message, context }]);
+  // Sync to server in background - clean the context to avoid issues
+  const cleanContext = { ...context };
+  delete cleanContext.timestamp;
+  debouncedSendLogs([{ level: LogLevel.INFO, message, context: cleanContext }]);
 };
 
 logger.warn = (message: string, context: LogContext = {}) => {
   originalWarn(message, context);
-  // Sync to server in background
-  debouncedSendLogs([{ level: LogLevel.WARN, message, context }]);
+  // Sync to server in background - clean the context to avoid issues
+  const cleanContext = { ...context };
+  delete cleanContext.timestamp;
+  debouncedSendLogs([{ level: LogLevel.WARN, message, context: cleanContext }]);
 };
 
 logger.error = (message: string, context: LogContext = {}, error?: Error) => {
   originalError(message, context, error);
-  // Sync to server in background
-  debouncedSendLogs([{ level: LogLevel.ERROR, message, context, error }]);
+  // Sync to server in background - clean the context to avoid issues
+  const cleanContext = { ...context };
+  // Remove any potential problematic fields
+  delete cleanContext.timestamp;
+  debouncedSendLogs([{ level: LogLevel.ERROR, message, context: cleanContext }]);
 };
 
 logger.critical = (message: string, context: LogContext = {}, error?: Error) => {
   originalCritical(message, context, error);
-  // Sync to server in background
-  debouncedSendLogs([{ level: LogLevel.CRITICAL, message, context, error }]);
+  // Sync to server in background - clean the context to avoid issues
+  const cleanContext = { ...context };
+  delete cleanContext.timestamp;
+  debouncedSendLogs([{ level: LogLevel.CRITICAL, message, context: cleanContext }]);
 };
 
 // Export the enhanced logger
@@ -98,7 +115,19 @@ export const logTestError = (message: string, context?: LogContext, error?: Erro
 // Function to manually sync all current logs to server
 export async function syncAllLogsToServer(): Promise<void> {
   const logs = logger.getLogs();
-  await sendLogsToServer(logs);
+  // Clean the logs before sending to avoid any issues
+  const cleanLogs = logs.map(log => ({
+    level: log.level,
+    message: log.message,
+    context: { ...log.context }
+  }));
+  
+  // Remove timestamp from context for each log
+  cleanLogs.forEach(log => {
+    delete log.context.timestamp;
+  });
+  
+  await sendLogsToServer(cleanLogs);
 }
 
 // Function to check if logs are syncing properly

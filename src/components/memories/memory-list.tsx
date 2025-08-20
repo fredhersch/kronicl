@@ -16,7 +16,7 @@ export function MemoryList({ memories }: MemoryListProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 xs:gap-3 sm:gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {memories.map((memory) => (
         <MemoryCard key={memory.id} memory={memory} />
       ))}

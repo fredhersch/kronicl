@@ -117,7 +117,6 @@ class Logger {
       level,
       message,
       context: {
-        timestamp: new Date().toISOString(),
         ...context
       },
       timestamp: new Date().toISOString()
@@ -142,9 +141,19 @@ class Logger {
   private formatMessage(entry: LogEntry): string {
     const levelStr = LogLevel[entry.level].padEnd(8);
     const timestamp = new Date(entry.timestamp).toLocaleTimeString();
-    const contextStr = Object.keys(entry.context).length > 0 
-      ? ` [${JSON.stringify(entry.context)}]` 
-      : '';
+    
+    let contextStr = '';
+    if (Object.keys(entry.context).length > 0) {
+      try {
+        // Safely stringify context, handling circular references
+        const contextCopy = { ...entry.context };
+        // Remove any potential circular references
+        delete contextCopy.timestamp; // Remove timestamp from context display
+        contextStr = ` [${JSON.stringify(contextCopy)}]`;
+      } catch (error) {
+        contextStr = ' [Context serialization error]';
+      }
+    }
     
     return `[${timestamp}] ${levelStr} ${entry.message}${contextStr}`;
   }
@@ -227,7 +236,26 @@ class Logger {
   }
 
   exportLogs(): string {
-    return JSON.stringify(this.logs, null, 2);
+    try {
+      // Safely stringify logs, handling potential circular references
+      const cleanLogs = this.logs.map(log => ({
+        level: log.level,
+        message: log.message,
+        context: { ...log.context },
+        timestamp: log.timestamp,
+        stack: log.stack
+      }));
+      
+      // Remove timestamp from context to avoid duplication
+      cleanLogs.forEach(log => {
+        delete log.context.timestamp;
+      });
+      
+      return JSON.stringify(cleanLogs, null, 2);
+    } catch (error) {
+      console.warn('Failed to export logs:', error);
+      return '[]';
+    }
   }
 
   setLogLevel(level: LogLevel): void {

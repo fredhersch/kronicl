@@ -106,4 +106,28 @@
   .mobile-shadow-lg {
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
   }
+  
+  /* Mobile-optimized memory tiles */
+  @media (max-width: 640px) {
+    .memory-tile-mobile {
+      min-height: 200px;
+    }
+    
+    .memory-tile-mobile .aspect-square {
+      aspect-ratio: 1;
+    }
+    
+    .memory-tile-mobile .text-xs {
+      font-size: 0.75rem;
+      line-height: 1rem;
+    }
+    
+    .memory-tile-mobile .p-1\.5 {
+      padding: 0.375rem;
+    }
+    
+    .memory-tile-mobile .space-y-1\.5 > * + * {
+      margin-top: 0.375rem;
+    }
+  }
 }

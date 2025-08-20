@@ -52,6 +52,8 @@ import {
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
+import { compressImages, getOptimalCompressionOptions, shouldCompressImage, formatFileSize } from '@/lib/image-compression';
+import { compressVideo, getOptimalVideoCompressionOptions, shouldCompressVideo, isVideoFormatSupported } from '@/lib/video-compression';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -91,6 +93,10 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [latitude, setLatitude] = useState(40.7128);
   const [longitude, setLongitude] = useState(-74.006);
   const [sentiment, setSentiment] = useState<Memory['sentiment']>('neutral');
+  const hasSetDateFromFile = useRef(false);
+  const [compressionProgress, setCompressionProgress] = useState(0);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionQuality, setCompressionQuality] = useState<'high' | 'medium' | 'low'>('medium');
   
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -157,6 +163,28 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-set date from first media file when media files change
+  useEffect(() => {
+    if (mediaFiles.length > 0 && !hasSetDateFromFile.current) {
+      const firstFileDate = new Date(mediaFiles[0].lastModified);
+      
+      // Log date auto-set from file
+      logDebug('Date auto-set from file', {
+        component: 'NewMemoryForm',
+        function: 'useEffect-mediaFiles',
+        action: 'date-auto-set',
+        userId: userId,
+        fileName: mediaFiles[0].name,
+        fileDate: firstFileDate.toISOString(),
+        timestamp: new Date().toISOString()
+      });
+
+      // Set the date and mark that we've done it
+      form.setValue('date', firstFileDate);
+      hasSetDateFromFile.current = true;
+    }
+  }, [mediaFiles, form, userId]);
+
   const handleLocationSearch = async () => {
     const locationQuery = form.getValues('location');
     if (!locationQuery) {
@@ -194,10 +222,69 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
   const tags = form.watch('tags');
 
-  const addMediaFiles = (newFiles: File[]) => {
+  const addMediaFiles = async (newFiles: File[]) => {
     // Get current page info for context
     const pageInfo = getCurrentPageInfo();
     
+    // Enhanced file validation and processing
+    const validFiles = newFiles.filter(file => {
+      // Check file size (max 50MB per file)
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        logWarn('File too large, skipping', {
+          component: 'NewMemoryForm',
+          function: 'addMediaFiles',
+          action: 'file-too-large',
+          userId: userId,
+          fileName: file.name,
+          fileSize: file.size,
+          maxSize,
+          timestamp: new Date().toISOString()
+        });
+        toast({
+          variant: 'destructive',
+          title: 'File too large',
+          description: `${file.name} is too large. Maximum size is 50MB.`,
+        });
+        return false;
+      }
+
+      // Check file type
+      const isValidType = file.type.startsWith('image/') || file.type.startsWith('video/');
+      if (!isValidType) {
+        logWarn('Invalid file type, skipping', {
+          component: 'NewMemoryForm',
+          function: 'addMediaFiles',
+          action: 'invalid-file-type',
+          userId: userId,
+          fileName: file.name,
+          fileType: file.type,
+          timestamp: new Date().toISOString()
+        });
+        toast({
+          variant: 'destructive',
+          title: 'Invalid file type',
+          description: `${file.name} is not a supported image or video file.`,
+        });
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      logWarn('No valid files after filtering', {
+        component: 'NewMemoryForm',
+        function: 'addMediaFiles',
+        action: 'no-valid-files',
+        userId: userId,
+        originalCount: newFiles.length,
+        validCount: validFiles.length,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     // Log file selection with page context
     logInfo('Media files selected', {
       component: 'NewMemoryForm',
@@ -208,8 +295,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         currentPath: pageInfo.currentPath,
         sessionId: pageInfo.sessionId
       },
-      newFilesCount: newFiles.length,
-      newFiles: newFiles.map(file => ({
+      newFilesCount: validFiles.length,
+      newFiles: validFiles.map(file => ({
         name: file.name,
         size: file.size,
         type: file.type,
@@ -222,130 +309,472 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     // Log page event for file selection
     logPageEvent('Media Files Selected', {
       userId: userId,
-      newFilesCount: newFiles.length,
-      totalFilesAfter: mediaFiles.length + newFiles.length,
-      fileTypes: newFiles.map(f => f.type),
-      totalSize: newFiles.reduce((total, file) => total + file.size, 0),
+      newFilesCount: validFiles.length,
+      totalFilesAfter: mediaFiles.length + validFiles.length,
+      fileTypes: validFiles.map(f => f.type),
+      totalSize: validFiles.reduce((total, file) => total + file.size, 0),
       pagePath: pageInfo.currentPath
     });
 
-    const combinedFiles = [...mediaFiles, ...newFiles];
-    const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
-    const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
-
-    // Log file validation
-    logDebug('Validating file selection', {
-      component: 'NewMemoryForm',
-      function: 'addMediaFiles',
-      action: 'validation-check',
-      userId: userId,
-      totalFiles: combinedFiles.length,
-      imageCount,
-      videoCount,
-      isValid: !(videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3),
-      timestamp: new Date().toISOString()
-    });
-
-    if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
-      // Log validation failure
-      logWarn('Invalid file selection', {
+    try {
+      // Start compression process
+      setIsCompressing(true);
+      setCompressionProgress(0);
+      
+      // Compress files before adding them
+      const compressedFiles = await Promise.all(
+        validFiles.map(async (file, index) => {
+          try {
+            if (file.type.startsWith('image/')) {
+              // Compress images
+              if (shouldCompressImage(file)) {
+                const baseOptions = getOptimalCompressionOptions(file.size);
+                
+                // Apply quality setting
+                const options = {
+                  ...baseOptions,
+                  quality: compressionQuality === 'high' ? 0.9 : 
+                          compressionQuality === 'medium' ? 0.8 : 0.7
+                };
+                
+                const result = await compressImages([file], options);
+                const compressedResult = result[0];
+                
+                // Log compression results
+                logInfo('Image compressed successfully', {
+                  component: 'NewMemoryForm',
+                  function: 'addMediaFiles',
+                  action: 'image-compressed',
+                  fileName: file.name,
+                  originalSize: compressedResult.originalSize,
+                  compressedSize: compressedResult.compressedSize,
+                  compressionRatio: Math.round(compressedResult.compressionRatio),
+                  newDimensions: `${compressedResult.width}x${compressedResult.height}`,
+                  quality: compressionQuality,
+                  userId: userId
+                });
+                
+                // Update progress
+                setCompressionProgress(((index + 1) / validFiles.length) * 100);
+                
+                // Create new file with compressed data
+                return new File([compressedResult.blob], file.name, {
+                  type: `image/${options.format}`,
+                  lastModified: Date.now()
+                });
+              } else {
+                // No compression needed
+                setCompressionProgress(((index + 1) / validFiles.length) * 100);
+                return file;
+              }
+            } else if (file.type.startsWith('video/')) {
+              // Compress videos
+              if (shouldCompressVideo(file) && isVideoFormatSupported(file)) {
+                try {
+                  const baseOptions = getOptimalVideoCompressionOptions(file.size);
+                  
+                  // Apply quality setting
+                  const options = {
+                    ...baseOptions,
+                    quality: compressionQuality === 'high' ? 0.9 : 
+                            compressionQuality === 'medium' ? 0.8 : 0.7
+                  };
+                  
+                  const result = await compressVideo(file, options);
+                  
+                  logInfo('Video compressed successfully', {
+                    component: 'NewMemoryForm',
+                    function: 'addMediaFiles',
+                    action: 'video-compressed',
+                    fileName: file.name,
+                    originalSize: result.originalSize,
+                    compressedSize: result.compressedSize,
+                    compressionRatio: Math.round(result.compressionRatio),
+                    duration: result.duration,
+                    newDimensions: `${result.width}x${result.height}`,
+                    quality: compressionQuality,
+                    userId: userId
+                  });
+                  
+                  // Update progress
+                  setCompressionProgress(((index + 1) / validFiles.length) * 100);
+                  
+                  return new File([result.blob], file.name, {
+                    type: 'video/webm',
+                    lastModified: Date.now()
+                  });
+                } catch (error) {
+                  logWarn('Video compression failed, using original', {
+                    component: 'NewMemoryForm',
+                    function: 'addMediaFiles',
+                    action: 'video-compression-failed',
+                    fileName: file.name,
+                    error: error instanceof Error ? error.message : String(error),
+                    userId: userId
+                  });
+                  
+                  // Update progress
+                  setCompressionProgress(((index + 1) / validFiles.length) * 100);
+                  
+                  return file; // Fallback to original
+                }
+              } else {
+                // No compression needed or not supported
+                setCompressionProgress(((index + 1) / validFiles.length) * 100);
+                return file;
+              }
+            }
+            return file;
+          } catch (error) {
+            logError('File compression failed', {
+              component: 'NewMemoryForm',
+              function: 'addMediaFiles',
+              action: 'compression-error',
+              fileName: file.name,
+              error: error instanceof Error ? error.message : String(error),
+              userId: userId
+            });
+            
+            // Update progress
+            setCompressionProgress(((index + 1) / validFiles.length) * 100);
+            
+            return file; // Fallback to original
+          }
+        })
+      );
+      
+      // Compression completed
+      setIsCompressing(false);
+      setCompressionProgress(100);
+      
+      // Log compression summary
+      const totalOriginalSize = validFiles.reduce((total, file) => total + file.size, 0);
+      const totalCompressedSize = compressedFiles.reduce((total, file) => total + file.size, 0);
+      const overallCompressionRatio = ((totalOriginalSize - totalCompressedSize) / totalOriginalSize) * 100;
+      
+      logInfo('File compression completed', {
         component: 'NewMemoryForm',
         function: 'addMediaFiles',
-        action: 'validation-failed',
+        action: 'compression-completed',
         userId: userId,
+        totalFiles: compressedFiles.length,
+        totalOriginalSize,
+        totalCompressedSize,
+        overallCompressionRatio: Math.round(overallCompressionRatio),
+        sizeReduction: formatFileSize(totalOriginalSize - totalCompressedSize),
+        timestamp: new Date().toISOString()
+      });
+      
+      // Show compression results to user
+      if (overallCompressionRatio > 10) {
+        toast({
+          title: 'Files compressed successfully',
+          description: `Reduced size by ${Math.round(overallCompressionRatio)}% (${formatFileSize(totalOriginalSize - totalCompressedSize)})`,
+        });
+      }
+      
+      const combinedFiles = [...mediaFiles, ...compressedFiles];
+      const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
+      const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
+
+      // Log file validation
+      logDebug('Validating file selection', {
+        component: 'NewMemoryForm',
+        function: 'addMediaFiles',
+        action: 'validation-check',
+        userId: userId,
+        totalFiles: combinedFiles.length,
         imageCount,
         videoCount,
-        reason: videoCount > 1 ? 'too-many-videos' : 
-                (videoCount > 0 && imageCount > 0) ? 'mixed-media-types' : 
-                'too-many-images',
+        isValid: !(videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3),
         timestamp: new Date().toISOString()
       });
 
-      toast({
-        variant: 'destructive',
-        title: 'Invalid selection',
-        description: 'You can upload up to 3 images or 1 video.',
-      });
-      return;
-    }
-    
-    setMediaFiles(combinedFiles);
+      if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
+        // Log validation failure
+        logWarn('Invalid file selection', {
+          component: 'NewMemoryForm',
+          function: 'addMediaFiles',
+          action: 'validation-failed',
+          userId: userId,
+          imageCount,
+          videoCount,
+          reason: videoCount > 1 ? 'too-many-videos' : 
+                  (videoCount > 0 && imageCount > 0) ? 'mixed-media-types' : 
+                  'too-many-images',
+          timestamp: new Date().toISOString()
+        });
 
-    // Log successful file addition
-    logInfo('Media files added successfully', {
-      component: 'NewMemoryForm',
-      function: 'addMediaFiles',
-      action: 'files-added',
-      userId: userId,
-      totalFiles: combinedFiles.length,
-      imageCount,
-      videoCount,
-      timestamp: new Date().toISOString()
-    });
-
-    if (combinedFiles.length > 0 && mediaFiles.length === 0) {
-      const firstFileDate = new Date(combinedFiles[0].lastModified);
-      form.setValue('date', firstFileDate);
+        toast({
+          variant: 'destructive',
+          title: 'Invalid selection',
+          description: 'You can upload up to 3 images or 1 video.',
+        });
+        return;
+      }
       
-      // Log date auto-set from file
-      logDebug('Date auto-set from file metadata', {
+      // Use functional update to avoid race conditions
+      setMediaFiles(prevFiles => {
+        const newCombinedFiles = [...prevFiles, ...compressedFiles];
+        
+        // Log successful file addition
+        logInfo('Media files added successfully', {
+          component: 'NewMemoryForm',
+          function: 'addMediaFiles',
+          action: 'files-added',
+          userId: userId,
+          totalFiles: newCombinedFiles.length,
+          imageCount: newCombinedFiles.filter(f => f.type.startsWith('image/')).length,
+          videoCount: newCombinedFiles.filter(f => f.type.startsWith('video/')).length,
+          timestamp: new Date().toISOString()
+        });
+
+        return newCombinedFiles;
+      });
+      
+    } catch (error) {
+      // Compression failed, fallback to original files
+      setIsCompressing(false);
+      setCompressionProgress(0);
+      
+      logError('File compression failed', {
         component: 'NewMemoryForm',
         function: 'addMediaFiles',
-        action: 'date-auto-set',
-        userId: userId,
-        fileName: combinedFiles[0].name,
-        fileDate: firstFileDate.toISOString(),
-        timestamp: new Date().toISOString()
+        action: 'compression-failed',
+        error: error instanceof Error ? error.message : String(error),
+        userId: userId
       });
+      
+      toast({
+        variant: 'destructive',
+        title: 'Compression failed',
+        description: 'Files will be uploaded without compression.',
+      });
+      
+      // Fallback to original files
+      const combinedFiles = [...mediaFiles, ...validFiles];
+      const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
+      const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
+
+      if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid selection',
+          description: 'You can upload up to 3 images or 1 video.',
+        });
+        return;
+      }
+      
+      setMediaFiles(prevFiles => [...prevFiles, ...validFiles]);
     }
   };
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      const files = Array.from(event.target.files);
+  const clearAllMedia = () => {
+    try {
       const pageInfo = getCurrentPageInfo();
       
-      // Log file input change with page context
-      logDebug('File input changed', {
+      // Log clearing all media
+      logInfo('All media files cleared', {
         component: 'NewMemoryForm',
-        function: 'handleFileChange',
-        action: 'input-change',
+        function: 'clearAllMedia',
+        action: 'all-files-cleared',
         userId: userId,
         pageContext: {
           currentPath: pageInfo.currentPath,
           sessionId: pageInfo.sessionId
         },
-        filesSelected: files.length,
-        files: files.map(file => ({
-          name: file.name,
-          size: file.size,
-          type: file.type
-        })),
+        clearedFileCount: mediaFiles.length,
         timestamp: new Date().toISOString()
       });
 
-      // Log page event for file input change
-      logPageEvent('File Input Changed', {
+      // Log page event for clearing all media
+      logPageEvent('All Media Files Cleared', {
         userId: userId,
-        filesSelected: files.length,
-        fileNames: files.map(f => f.name),
-        totalSize: files.reduce((total, file) => total + file.size, 0),
+        clearedFileCount: mediaFiles.length,
         pagePath: pageInfo.currentPath
       });
 
-      addMediaFiles(files);
+      setMediaFiles([]);
       
-      // Reset file input to allow re-selection of the same file if needed after removal
-      event.target.value = '';
+      // Reset the date ref so it can be set again if new files are added
+      hasSetDateFromFile.current = false;
       
-      // Log file input reset
-      logDebug('File input reset', {
+      // Log successful clearing
+      logDebug('Media files state cleared', {
         component: 'NewMemoryForm',
-        function: 'handleFileChange',
-        action: 'input-reset',
+        function: 'clearAllMedia',
+        action: 'state-cleared',
         userId: userId,
         timestamp: new Date().toISOString()
       });
+    } catch (error) {
+      logError('Error clearing all media files', {
+        component: 'NewMemoryForm',
+        function: 'clearAllMedia',
+        action: 'clear-error',
+        userId: userId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }, error instanceof Error ? error : undefined);
+
+      toast({
+        variant: 'destructive',
+        title: 'Error clearing files',
+        description: 'There was an error clearing the files. Please try again.',
+      });
+    }
+  };
+
+  const removeMediaFile = (index: number) => {
+    try {
+      const pageInfo = getCurrentPageInfo();
+      const fileToRemove = mediaFiles[index];
+      
+      // Log file removal
+      logInfo('Media file removed', {
+        component: 'NewMemoryForm',
+        function: 'removeMediaFile',
+        action: 'file-removed',
+        userId: userId,
+        pageContext: {
+          currentPath: pageInfo.currentPath,
+          sessionId: pageInfo.sessionId
+        },
+        removedFile: {
+          name: fileToRemove.name,
+          size: fileToRemove.size,
+          type: fileToRemove.type
+        },
+        remainingFiles: mediaFiles.length - 1,
+        timestamp: new Date().toISOString()
+      });
+
+      // Log page event for file removal
+      logPageEvent('Media File Removed', {
+        userId: userId,
+        fileName: fileToRemove.name,
+        remainingFiles: mediaFiles.length - 1,
+        pagePath: pageInfo.currentPath
+      });
+
+      // Use functional update to avoid race conditions
+      setMediaFiles(prevFiles => {
+        const newFiles = prevFiles.filter((_, idx) => idx !== index);
+        
+        // Reset the date ref if we're removing all files
+        if (newFiles.length === 0) {
+          hasSetDateFromFile.current = false;
+        }
+        
+        // Log successful removal
+        logDebug('Media files updated after removal', {
+          component: 'NewMemoryForm',
+          function: 'removeMediaFile',
+          action: 'files-updated',
+          userId: userId,
+          newFileCount: newFiles.length,
+          timestamp: new Date().toISOString()
+        });
+        
+        return newFiles;
+      });
+    } catch (error) {
+      logError('Error removing media file', {
+        component: 'NewMemoryForm',
+        function: 'removeMediaFile',
+        action: 'removal-error',
+        userId: userId,
+        fileIndex: index,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }, error instanceof Error ? error : undefined);
+
+      toast({
+        variant: 'destructive',
+        title: 'Error removing file',
+        description: 'There was an error removing the file. Please try again.',
+      });
+    }
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    try {
+      if (event.target.files && event.target.files.length > 0) {
+        const files = Array.from(event.target.files);
+        const pageInfo = getCurrentPageInfo();
+        
+        // Log file input change with page context
+        logDebug('File input changed', {
+          component: 'NewMemoryForm',
+          function: 'handleFileChange',
+          action: 'input-change',
+          userId: userId,
+          pageContext: {
+            currentPath: pageInfo.currentPath,
+            sessionId: pageInfo.sessionId
+          },
+          filesSelected: files.length,
+          files: files.map(file => ({
+            name: file.name,
+            size: file.size,
+            type: file.type
+          })),
+          timestamp: new Date().toISOString()
+        });
+
+        // Log page event for file input change
+        logPageEvent('File Input Changed', {
+          userId: userId,
+          filesSelected: files.length,
+          fileNames: files.map(f => f.name),
+          totalSize: files.reduce((total, file) => total + file.size, 0),
+          pagePath: pageInfo.currentPath
+        });
+
+        // Process files
+        addMediaFiles(files);
+        
+        // Log successful file processing
+        logDebug('File input processed successfully', {
+          component: 'NewMemoryForm',
+          function: 'handleFileChange',
+          action: 'files-processed',
+          userId: userId,
+          processedCount: files.length,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      // Log any errors during file processing
+      logError('Error processing file input', {
+        component: 'NewMemoryForm',
+        function: 'handleFileChange',
+        action: 'file-processing-error',
+        userId: userId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }, error instanceof Error ? error : undefined);
+
+      toast({
+        variant: 'destructive',
+        title: 'File processing error',
+        description: 'There was an error processing your files. Please try again.',
+      });
+    } finally {
+      // Always reset the input value to allow re-selection
+      // This is important for mobile devices and re-selection scenarios
+      if (event.target) {
+        event.target.value = '';
+        
+        // Log file input reset
+        logDebug('File input reset', {
+          component: 'NewMemoryForm',
+          function: 'handleFileChange',
+          action: 'input-reset',
+          userId: userId,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   };
 
@@ -1280,33 +1709,158 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           <CardContent>
             <div className="space-y-4">
               {/* Media Grid - Mobile Optimized */}
-              <div className="grid grid-cols-3 gap-3">
-                {mediaFiles.map((file, i) => (
-                  <div key={i} className="relative aspect-square rounded-xl overflow-hidden border-2 border-border/40">
-                    {file.type.startsWith('image/') ? (
-                      <Image src={URL.createObjectURL(file)} alt={file.name} layout="fill" objectFit="cover" />
-                    ) : (
-                      <div className="w-full h-full bg-black flex items-center justify-center">
-                        <Video className="w-8 h-8 text-white" />
-                      </div>
-                    )}
-                    <Button 
-                      size="icon" 
-                      variant="destructive" 
-                      className="absolute top-1 right-1 h-6 w-6 rounded-full"
-                      onClick={() => setMediaFiles(mediaFiles.filter((_, idx) => idx !== i))}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+              <div className="space-y-3">
+                {/* File Count and Validation Info */}
+                {mediaFiles.length > 0 && (
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{mediaFiles.length} file(s) selected</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">
+                        {mediaFiles.filter(f => f.type.startsWith('image/')).length} image(s)
+                      </span>
+                      {mediaFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
+                        <span className="text-xs">
+                          {mediaFiles.filter(f => f.type.startsWith('video/')).length} video(s)
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to remove all media files?')) {
+                            clearAllMedia();
+                          }
+                        }}
+                        className="text-xs text-destructive hover:text-destructive/80"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {/* Media Grid */}
+                {isCompressing && (
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                      <span className="font-medium text-blue-800">Compressing files...</span>
+                      <span className="text-sm text-blue-600">{Math.round(compressionProgress)}%</span>
+                    </div>
+                    <Progress value={compressionProgress} className="h-2" />
+                    <p className="text-xs text-blue-600 mt-2">
+                      This will reduce file sizes for faster uploads
+                    </p>
+                  </div>
+                )}
                 
-                {/* Add Media Button - Mobile Optimized */}
-                <label className="aspect-square rounded-xl border-2 border-dashed border-primary/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
-                  <Upload className="w-8 h-8 text-primary/60" />
-                  <span className="text-xs mt-1 text-primary/60 font-medium">Add</span>
-                  <input type="file" multiple accept="image/*,video/*" className="sr-only" onChange={handleFileChange} />
-                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {mediaFiles.map((file, i) => (
+                    <div key={`${file.name}-${i}`} className="relative aspect-square rounded-xl overflow-hidden border-2 border-border/40 bg-background">
+                      {file.type.startsWith('image/') ? (
+                        <Image 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name} 
+                          layout="fill" 
+                          objectFit="cover"
+                          className="transition-transform hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-black flex items-center justify-center">
+                          <Video className="w-8 h-8 text-white" />
+                        </div>
+                      )}
+                      
+                      {/* File Info Overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 text-xs">
+                        <div className="truncate font-medium">{file.name}</div>
+                        <div className="text-muted-foreground">
+                          {(file.size / (1024 * 1024)).toFixed(1)} MB
+                          {file.size < (file as any).originalSize && (
+                            <span className="ml-1 text-green-400">
+                              ↓{Math.round(((file as any).originalSize - file.size) / (file as any).originalSize * 100)}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Remove Button */}
+                      <Button 
+                        size="icon" 
+                        variant="destructive" 
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg hover:scale-110 transition-transform"
+                        onClick={() => removeMediaFile(i)}
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {/* Add Media Button - Mobile Optimized */}
+                  {mediaFiles.length < 3 && (
+                    <label className="aspect-square rounded-xl border-2 border-dashed border-primary/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors group">
+                      <Upload className="w-8 h-8 text-primary/60 group-hover:text-primary/80 transition-colors" />
+                      <span className="text-xs mt-1 text-primary/60 group-hover:text-primary/80 font-medium transition-colors">
+                        Add Media
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {3 - mediaFiles.length} remaining
+                      </span>
+                      <input 
+                        type="file" 
+                        multiple 
+                        accept="image/*,video/*" 
+                        className="sr-only" 
+                        onChange={handleFileChange}
+                        capture="environment"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Compression Settings */}
+                <div className="mt-4 p-3 bg-muted/30 rounded-lg border border-border/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-foreground">File Compression</span>
+                    <Badge variant="secondary" className="text-xs">
+                      Auto-optimized
+                    </Badge>
+                  </div>
+                  
+                  {/* Compression Quality Selector */}
+                  <div className="mb-3">
+                    <label className="text-xs font-medium text-foreground mb-2 block">Compression Quality:</label>
+                    <div className="flex gap-2">
+                      {(['high', 'medium', 'low'] as const).map((quality) => (
+                        <Button
+                          key={quality}
+                          type="button"
+                          variant={compressionQuality === quality ? "default" : "outline"}
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => setCompressionQuality(quality)}
+                        >
+                          {quality.charAt(0).toUpperCase() + quality.slice(1)}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>• <strong>High:</strong> Minimal compression, best quality (20-40% size reduction)</p>
+                    <p>• <strong>Medium:</strong> Balanced compression (40-70% size reduction)</p>
+                    <p>• <strong>Low:</strong> Maximum compression (60-80% size reduction)</p>
+                    <p>• Videos: Optimized for web viewing with reduced bitrate</p>
+                  </div>
+                </div>
+
+                {/* File Type and Size Guidelines */}
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>• Supported: JPG, PNG, GIF, MP4, MOV (max 50MB per file)</p>
+                  <p>• You can upload up to 3 images or 1 video</p>
+                  <p>• Images and videos cannot be mixed</p>
+                </div>
               </div>
             </div>
           </CardContent>
