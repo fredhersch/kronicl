@@ -23,8 +23,9 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
     <>
       {/* Top Header - Mobile Optimized */}
       <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm shadow-sm">
-        <div className="flex items-center justify-between h-16 px-4">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="flex items-center h-16 px-4">
+          {/* Logo - Left */}
+          <Link href="/" className="flex items-center gap-3 flex-shrink-0">
             <div className="relative">
               <div className="w-10 h-10 bg-indigo-600 rounded-xl shadow-sm flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-white" />
@@ -33,20 +34,24 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
                 <Heart className="w-2 h-2 text-white fill-current" />
               </div>
             </div>
-            <h1 className="text-lg font-semibold text-slate-900">Memory Lane</h1>
+            <h1 className="hidden sm:block text-lg font-semibold text-slate-900">Memory Lane</h1>
           </Link>
-          <div className="flex items-center gap-4">
-            {/* Search Bar */}
-            <div className="relative max-w-xs">
+          
+          {/* Search Bar - Center on mobile, right on desktop */}
+          <div className="flex-1 flex justify-center sm:justify-end sm:mr-4">
+            <div className="relative w-full max-w-xs sm:max-w-sm mx-2 sm:mx-0">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 type="search"
                 placeholder="Search memories..."
-                className="w-64 pl-10 pr-4 h-10 rounded-lg bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full sm:w-64 pl-10 pr-4 h-10 rounded-lg bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 onChange={(e) => onSearch(e.target.value)}
               />
             </div>
-            
+          </div>
+          
+          {/* User Avatar - Right */}
+          <div className="flex-shrink-0">
             {/* User Avatar with Logout Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -85,7 +90,7 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
       </header>
 
       {/* Bottom Navigation - Mobile App Style */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg mobile-bottom-nav">
         <div className="flex items-center justify-around h-16 px-2">
           <Link href="/" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
             <Home className={`w-6 h-6 ${pathname === '/' ? 'text-indigo-600' : 'text-slate-400'}`} />
@@ -101,11 +106,16 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
             </span>
           </Link>
           
-          <Link href="/memories/new" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
-            <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-              <Plus className="w-6 h-6 text-white" />
+          <Link href="/memories/new" className="flex flex-col items-center p-2 rounded-xl transition-all duration-300 hover:scale-105 -translate-y-7">
+            <div className="relative">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-full flex items-center justify-center shadow-xl border-4 border-white hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+                <Plus className="w-8 h-8 text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                <span className="text-white text-xs font-bold">+</span>
+              </div>
             </div>
-            <span className="text-xs text-indigo-600 font-medium">New</span>
+            <span className="text-sm text-indigo-600 font-bold mt-4">New</span>
           </Link>
         </div>
       </nav>
