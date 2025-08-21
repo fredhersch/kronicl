@@ -13,8 +13,6 @@ const config: Config = {
         'xs': '475px',
       },
       fontFamily: {
-        body: ['Lora', 'serif'],
-        headline: ['Lora', 'serif'],
         code: ['monospace'],
       },
       colors: {

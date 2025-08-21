@@ -483,63 +483,63 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       }
       
       const combinedFiles = [...mediaFiles, ...compressedFiles];
-      const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
-      const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
+    const imageCount = combinedFiles.filter(f => f.type.startsWith('image/')).length;
+    const videoCount = combinedFiles.filter(f => f.type.startsWith('video/')).length;
 
-      // Log file validation
-      logDebug('Validating file selection', {
+    // Log file validation
+    logDebug('Validating file selection', {
+      component: 'NewMemoryForm',
+      function: 'addMediaFiles',
+      action: 'validation-check',
+      userId: userId,
+      totalFiles: combinedFiles.length,
+      imageCount,
+      videoCount,
+      isValid: !(videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3),
+      timestamp: new Date().toISOString()
+    });
+
+    if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
+      // Log validation failure
+      logWarn('Invalid file selection', {
         component: 'NewMemoryForm',
         function: 'addMediaFiles',
-        action: 'validation-check',
+        action: 'validation-failed',
         userId: userId,
-        totalFiles: combinedFiles.length,
         imageCount,
         videoCount,
-        isValid: !(videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3),
+        reason: videoCount > 1 ? 'too-many-videos' : 
+                (videoCount > 0 && imageCount > 0) ? 'mixed-media-types' : 
+                'too-many-images',
         timestamp: new Date().toISOString()
       });
 
-      if (videoCount > 1 || (videoCount > 0 && imageCount > 0) || imageCount > 3) {
-        // Log validation failure
-        logWarn('Invalid file selection', {
-          component: 'NewMemoryForm',
-          function: 'addMediaFiles',
-          action: 'validation-failed',
-          userId: userId,
-          imageCount,
-          videoCount,
-          reason: videoCount > 1 ? 'too-many-videos' : 
-                  (videoCount > 0 && imageCount > 0) ? 'mixed-media-types' : 
-                  'too-many-images',
-          timestamp: new Date().toISOString()
-        });
-
-        toast({
-          variant: 'destructive',
-          title: 'Invalid selection',
-          description: 'You can upload up to 3 images or 1 video.',
-        });
-        return;
-      }
-      
-      // Use functional update to avoid race conditions
-      setMediaFiles(prevFiles => {
-        const newCombinedFiles = [...prevFiles, ...compressedFiles];
-        
-        // Log successful file addition
-        logInfo('Media files added successfully', {
-          component: 'NewMemoryForm',
-          function: 'addMediaFiles',
-          action: 'files-added',
-          userId: userId,
-          totalFiles: newCombinedFiles.length,
-          imageCount: newCombinedFiles.filter(f => f.type.startsWith('image/')).length,
-          videoCount: newCombinedFiles.filter(f => f.type.startsWith('video/')).length,
-          timestamp: new Date().toISOString()
-        });
-
-        return newCombinedFiles;
+      toast({
+        variant: 'destructive',
+        title: 'Invalid selection',
+        description: 'You can upload up to 3 images or 1 video.',
       });
+      return;
+    }
+    
+    // Use functional update to avoid race conditions
+    setMediaFiles(prevFiles => {
+        const newCombinedFiles = [...prevFiles, ...compressedFiles];
+      
+      // Log successful file addition
+      logInfo('Media files added successfully', {
+        component: 'NewMemoryForm',
+        function: 'addMediaFiles',
+        action: 'files-added',
+        userId: userId,
+        totalFiles: newCombinedFiles.length,
+        imageCount: newCombinedFiles.filter(f => f.type.startsWith('image/')).length,
+        videoCount: newCombinedFiles.filter(f => f.type.startsWith('video/')).length,
+        timestamp: new Date().toISOString()
+      });
+
+      return newCombinedFiles;
+    });
       
     } catch (error) {
       // Compression failed, fallback to original files
@@ -814,7 +814,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         
         // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
-        
+
         // Start AI processing
         processAudioWithAI(audioBlob);
       };
@@ -1180,14 +1180,14 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     try {
         // Log media upload start
         if (includeMedia && mediaFiles.length > 0) {
-          logInfo('Starting media file uploads', {
-            component: 'NewMemoryForm',
-            function: 'onSubmit',
-            action: 'media-upload-start',
-            userId: userId,
-            totalFiles: mediaFiles.length,
-            timestamp: new Date().toISOString()
-          });
+        logInfo('Starting media file uploads', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'media-upload-start',
+          userId: userId,
+          totalFiles: mediaFiles.length,
+          timestamp: new Date().toISOString()
+        });
         }
 
         const mediaItems: Memory['media'] = includeMedia && mediaFiles.length > 0 ? await Promise.all(
@@ -1248,18 +1248,18 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         
         // Log all media uploads completed
         if (includeMedia && mediaItems.length > 0) {
-          logInfo('All media files uploaded successfully', {
-            component: 'NewMemoryForm',
-            function: 'onSubmit',
-            action: 'media-upload-completed',
-            userId: userId,
-            totalFiles: mediaFiles.length,
-            mediaItems: mediaItems.map(item => ({
-              type: item.type,
-              hasUrl: !!item.url
-            })),
-            timestamp: new Date().toISOString()
-          });
+        logInfo('All media files uploaded successfully', {
+          component: 'NewMemoryForm',
+          function: 'onSubmit',
+          action: 'media-upload-completed',
+          userId: userId,
+          totalFiles: mediaFiles.length,
+          mediaItems: mediaItems.map(item => ({
+            type: item.type,
+            hasUrl: !!item.url
+          })),
+          timestamp: new Date().toISOString()
+        });
         }
         
         let audioUrl = '';
@@ -1762,13 +1762,13 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Upload className="w-5 h-5" />
-                  Media
-                </CardTitle>
-                <CardDescription className="text-sm">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Upload className="w-5 h-5" />
+              Media
+            </CardTitle>
+            <CardDescription className="text-sm">
                   Add photos or videos to enhance your memory
-                </CardDescription>
+            </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Switch
@@ -1781,38 +1781,38 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           </CardHeader>
           
           {includeMedia && (
-            <CardContent>
-              <div className="space-y-4">
+          <CardContent>
+            <div className="space-y-4">
                 {/* Media Grid */}
-                <div className="space-y-3">
-                  {/* File Count and Validation Info */}
-                  {mediaFiles.length > 0 && (
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{mediaFiles.length} file(s) selected</span>
-                      <div className="flex items-center gap-2">
+              <div className="space-y-3">
+                {/* File Count and Validation Info */}
+                {mediaFiles.length > 0 && (
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{mediaFiles.length} file(s) selected</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">
+                        {mediaFiles.filter(f => f.type.startsWith('image/')).length} image(s)
+                      </span>
+                      {mediaFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
                         <span className="text-xs">
-                          {mediaFiles.filter(f => f.type.startsWith('image/')).length} image(s)
+                          {mediaFiles.filter(f => f.type.startsWith('video/')).length} video(s)
                         </span>
-                        {mediaFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
-                          <span className="text-xs">
-                            {mediaFiles.filter(f => f.type.startsWith('video/')).length} video(s)
-                          </span>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm('Are you sure you want to remove all media files?')) {
-                              clearAllMedia();
-                            }
-                          }}
-                          className="text-xs text-destructive hover:text-destructive/80"
-                        >
-                          Clear All
-                        </Button>
-                      </div>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to remove all media files?')) {
+                            clearAllMedia();
+                          }
+                        }}
+                        className="text-xs text-destructive hover:text-destructive/80"
+                      >
+                        Clear All
+                      </Button>
                     </div>
-                  )}
+                  </div>
+                )}
 
                   {/* Compression Progress */}
                   {isCompressing && (
@@ -1828,72 +1828,72 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                       </p>
                     </div>
                   )}
-                  
-                  {/* Media Grid */}
-                  <div className="grid grid-cols-3 gap-3">
-                    {mediaFiles.map((file, i) => (
-                      <div key={`${file.name}-${i}`} className="relative aspect-square rounded-xl overflow-hidden border-2 border-border/40 bg-background">
-                        {file.type.startsWith('image/') ? (
-                          <Image 
-                            src={URL.createObjectURL(file)} 
-                            alt={file.name} 
-                            layout="fill" 
-                            objectFit="cover"
-                            className="transition-transform hover:scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-black flex items-center justify-center">
-                            <Video className="w-8 h-8 text-white" />
-                          </div>
-                        )}
-                        
-                        {/* File Info Overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 text-xs">
-                          <div className="truncate font-medium">{file.name}</div>
-                          <div className="text-muted-foreground">
-                            {(file.size / (1024 * 1024)).toFixed(1)} MB
+
+                {/* Media Grid */}
+                <div className="grid grid-cols-3 gap-3">
+                  {mediaFiles.map((file, i) => (
+                    <div key={`${file.name}-${i}`} className="relative aspect-square rounded-xl overflow-hidden border-2 border-border/40 bg-background">
+                      {file.type.startsWith('image/') ? (
+                        <Image 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name} 
+                          layout="fill" 
+                          objectFit="cover"
+                          className="transition-transform hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-black flex items-center justify-center">
+                          <Video className="w-8 h-8 text-white" />
+                        </div>
+                      )}
+                      
+                      {/* File Info Overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 text-xs">
+                        <div className="truncate font-medium">{file.name}</div>
+                        <div className="text-muted-foreground">
+                          {(file.size / (1024 * 1024)).toFixed(1)} MB
                             {file.size < (file as any).originalSize && (
                               <span className="ml-1 text-green-400">
                                 ↓{Math.round(((file as any).originalSize - file.size) / (file as any).originalSize * 100)}%
                               </span>
                             )}
-                          </div>
                         </div>
-                        
-                        {/* Remove Button */}
-                        <Button 
-                          size="icon" 
-                          variant="destructive" 
-                          className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg hover:scale-110 transition-transform"
-                          onClick={() => removeMediaFile(i)}
-                          aria-label={`Remove ${file.name}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
                       </div>
-                    ))}
-                    
+                      
+                      {/* Remove Button */}
+                      <Button 
+                        size="icon" 
+                        variant="destructive" 
+                        className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg hover:scale-110 transition-transform"
+                        onClick={() => removeMediaFile(i)}
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  
                     {/* Add Media Button */}
-                    {mediaFiles.length < 3 && (
-                      <label className="aspect-square rounded-xl border-2 border-dashed border-primary/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors group">
-                        <Upload className="w-8 h-8 text-primary/60 group-hover:text-primary/80 transition-colors" />
-                        <span className="text-xs mt-1 text-primary/60 group-hover:text-primary/80 font-medium transition-colors">
-                          Add Media
-                        </span>
-                        <span className="text-xs text-muted-foreground mt-1">
-                          {3 - mediaFiles.length} remaining
-                        </span>
-                        <input 
-                          type="file" 
-                          multiple 
-                          accept="image/*,video/*" 
-                          className="sr-only" 
-                          onChange={handleFileChange}
-                          capture="environment"
-                        />
-                      </label>
-                    )}
-                  </div>
+                  {mediaFiles.length < 3 && (
+                    <label className="aspect-square rounded-xl border-2 border-dashed border-primary/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors group">
+                      <Upload className="w-8 h-8 text-primary/60 group-hover:text-primary/80 transition-colors" />
+                      <span className="text-xs mt-1 text-primary/60 group-hover:text-primary/80 font-medium transition-colors">
+                        Add Media
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {3 - mediaFiles.length} remaining
+                      </span>
+                      <input 
+                        type="file" 
+                        multiple 
+                        accept="image/*,video/*" 
+                        className="sr-only" 
+                        onChange={handleFileChange}
+                        capture="environment"
+                      />
+                    </label>
+                  )}
+                </div>
 
                   {/* Compression Settings */}
                   <div className="mt-4">
@@ -1944,88 +1944,88 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     </Accordion>
                   </div>
 
-                  {/* File Type and Size Guidelines */}
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>• Supported: JPG, PNG, GIF, MP4, MOV (max 50MB per file)</p>
-                    <p>• You can upload up to 3 images or 1 video</p>
-                    <p>• Images and videos cannot be mixed</p>
-                  </div>
+                {/* File Type and Size Guidelines */}
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>• Supported: JPG, PNG, GIF, MP4, MOV (max 50MB per file)</p>
+                  <p>• You can upload up to 3 images or 1 video</p>
+                  <p>• Images and videos cannot be mixed</p>
                 </div>
               </div>
-            </CardContent>
+            </div>
+          </CardContent>
           )}
         </Card>
-
+        
         {/* AI Generated Content */}
         <Card>
-          <CardHeader>
+            <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wand2 className="w-6 h-6"/> 
               AI Generated Content
             </CardTitle>
-            <CardDescription>Review and edit the AI-generated title, summary, and tags.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-medium">Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Sunny Day at the Beach" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="summary"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-medium">Summary</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="e.g., A wonderful day spent with family..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="tags"
-              render={() => (
-                <FormItem>
+                <CardDescription>Review and edit the AI-generated title, summary, and tags.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium">Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Sunny Day at the Beach" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="summary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium">Summary</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="e.g., A wonderful day spent with family..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="tags"
+                  render={() => (
+                    <FormItem>
                   <FormLabel className="flex items-center gap-2 font-medium">
                     <Tag className="w-5 h-5"/> 
                     Tags
                   </FormLabel>
-                  <FormControl>
-                    <div className="flex items-center gap-2 border rounded-md p-2 flex-wrap">
-                      {tags.map((tag, i) => (
-                        <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
-                          {tag}
-                          <button type="button" onClick={() => removeTag(tag)} className="ml-2 rounded-full hover:bg-destructive/20 p-0.5">
+                      <FormControl>
+                          <div className="flex items-center gap-2 border rounded-md p-2 flex-wrap">
+                              {tags.map((tag, i) => (
+                                <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
+                                  {tag}
+                                  <button type="button" onClick={() => removeTag(tag)} className="ml-2 rounded-full hover:bg-destructive/20 p-0.5">
                             <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                      <input
-                        type="text"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={handleTagKeyDown}
-                        placeholder="Add a tag and press Enter..."
-                        className="bg-transparent outline-none flex-1 min-w-[150px] p-1"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
+                                  </button>
+                                </Badge>
+                              ))}
+                                <input
+                                    type="text"
+                                    value={tagInput}
+                                    onChange={(e) => setTagInput(e.target.value)}
+                                    onKeyDown={handleTagKeyDown}
+                                    placeholder="Add a tag and press Enter..."
+                                    className="bg-transparent outline-none flex-1 min-w-[150px] p-1"
+                                />
+                          </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </CardContent>
         </Card>
 
         {/* Details */}
@@ -2061,29 +2061,29 @@ export function NewMemoryForm({ userId }: { userId: string }) {
               )}
             />
             <div className="space-y-2">
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
+                 <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
                     <FormLabel className="flex items-center gap-2 font-medium">
                       <MapPin className="w-5 h-5"/> 
                       Location
                     </FormLabel>
-                    <div className="flex items-center gap-2">
-                      <FormControl>
-                        <Input placeholder="Search for a location" {...field} />
-                      </FormControl>
-                      <Button type="button" size="icon" variant="outline" onClick={handleLocationSearch}>
-                        <Search className="w-4 h-4" />
-                        <span className="sr-only">Search Location</span>
-                      </Button>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Map latitude={latitude} longitude={longitude} />
+                        <div className="flex items-center gap-2">
+                           <FormControl>
+                             <Input placeholder="Search for a location" {...field} />
+                          </FormControl>
+                           <Button type="button" size="icon" variant="outline" onClick={handleLocationSearch}>
+                            <Search className="w-4 h-4" />
+                            <span className="sr-only">Search Location</span>
+                           </Button>
+                       </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Map latitude={latitude} longitude={longitude} />
             </div>
           </CardContent>
         </Card>
