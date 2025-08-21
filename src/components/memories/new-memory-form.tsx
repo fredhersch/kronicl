@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -48,12 +47,17 @@ import {
   Video,
   Loader2,
   Search,
+  Plus,
+  Play,
+  Pause,
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
 import { compressImages, getOptimalCompressionOptions, shouldCompressImage, formatFileSize } from '@/lib/image-compression';
 import { compressVideo, getOptimalVideoCompressionOptions, shouldCompressVideo, isVideoFormatSupported } from '@/lib/video-compression';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Switch } from '@/components/ui/switch';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -62,6 +66,7 @@ const formSchema = z.object({
   location: z.string().min(1, 'Location is required.'),
   transcription: z.string().optional(),
   tags: z.array(z.string()).min(1, 'At least one tag is required.'),
+  // Media is now optional - no validation required
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -83,10 +88,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [includeMedia, setIncludeMedia] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -96,7 +102,10 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const hasSetDateFromFile = useRef(false);
   const [compressionProgress, setCompressionProgress] = useState(0);
   const [isCompressing, setIsCompressing] = useState(false);
-  const [compressionQuality, setCompressionQuality] = useState<'high' | 'medium' | 'low'>('medium');
+  const [compressionQuality, setCompressionQuality] = useState(0.8);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -333,8 +342,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                 // Apply quality setting
                 const options = {
                   ...baseOptions,
-                  quality: compressionQuality === 'high' ? 0.9 : 
-                          compressionQuality === 'medium' ? 0.8 : 0.7
+                  quality: compressionQuality >= 0.8 ? 0.9 : 
+                          compressionQuality >= 0.6 ? 0.8 : 0.7
                 };
                 
                 const result = await compressImages([file], options);
@@ -376,8 +385,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   // Apply quality setting
                   const options = {
                     ...baseOptions,
-                    quality: compressionQuality === 'high' ? 0.9 : 
-                            compressionQuality === 'medium' ? 0.8 : 0.7
+                    quality: compressionQuality >= 0.8 ? 0.9 : 
+                            compressionQuality >= 0.6 ? 0.8 : 0.7
                   };
                   
                   const result = await compressVideo(file, options);
@@ -779,402 +788,139 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   };
 
   const startRecording = async () => {
-    // Get current page info for context
-    const pageInfo = getCurrentPageInfo();
-    
-    // Log recording start attempt with page context
-    logInfo('Audio recording started', {
-      component: 'NewMemoryForm',
-      function: 'startRecording',
-      action: 'recording-start',
-      userId: userId,
-      pageContext: {
-        currentPath: pageInfo.currentPath,
-        sessionId: pageInfo.sessionId
-      },
-      timestamp: new Date().toISOString()
-    });
-
-    // Log page event for recording start
-    logPageEvent('Audio Recording Started', {
-      userId: userId,
-      pagePath: pageInfo.currentPath,
-      timestamp: new Date().toISOString()
-    });
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Log microphone access success
-      logDebug('Microphone access granted', {
-        component: 'NewMemoryForm',
-        function: 'startRecording',
-        action: 'microphone-access',
-        userId: userId,
-        streamActive: stream.active,
-        trackCount: stream.getTracks().length,
-        timestamp: new Date().toISOString()
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000
       });
-
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      const chunks: BlobPart[] = [];
       
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        chunks.push(event.data);
-        
-        // Log data available
-        logDebug('Audio data available', {
-          component: 'NewMemoryForm',
-          function: 'startRecording',
-          action: 'data-available',
-          userId: userId,
-          dataSize: event.data.size,
-          chunksCount: chunks.length,
-          timestamp: new Date().toISOString()
-        });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
       };
       
-      mediaRecorderRef.current.onstop = async () => {
-        // Log recording stop
-        logInfo('Audio recording stopped', {
-          component: 'NewMemoryForm',
-          function: 'startRecording',
-          action: 'recording-stop',
-          userId: userId,
-          totalChunks: chunks.length,
-          recordingTime: recordingTime,
-          timestamp: new Date().toISOString()
-        });
-
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        setAudioBlob(blob);
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(audioBlob);
+        setRecordingTime(0);
+        setIsRecording(false);
+        setIsPaused(false);
+        
+        // Stop all tracks to release microphone
         stream.getTracks().forEach(track => track.stop());
-
-        // Log audio blob creation
-        logDebug('Audio blob created', {
-          component: 'NewMemoryForm',
-          function: 'startRecording',
-          action: 'blob-created',
-          userId: userId,
-          blobSize: blob.size,
-          blobType: blob.type,
-          timestamp: new Date().toISOString()
-        });
-
-        setIsProcessingAI(true);
         
-        // Log AI processing start
-        logInfo('AI processing started for audio', {
-          component: 'NewMemoryForm',
-          function: 'startRecording',
-          action: 'ai-processing-start',
-          userId: userId,
-          audioBlobSize: blob.size,
-          timestamp: new Date().toISOString()
-        });
-
-                  try {
-            const audioDataUri = await blobToDataUri(blob);
-            
-            // Log audio conversion
-            logDebug('Audio converted to data URI', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'audio-conversion',
-              userId: userId,
-              dataUriLength: audioDataUri.length,
-              timestamp: new Date().toISOString()
-            });
-
-            // Call transcribeAudio with proper error handling
-            logAIServiceCall('TranscriptionService', 'transcribe', { audioDataUriLength: audioDataUri.length }, { userId });
-            
-            const transcriptionResult = await transcribeAudio({ audioDataUri });
-            
-            // Log raw transcription result for debugging
-            logDebug('Raw transcription result received', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'transcription-result-received',
-              userId: userId,
-              hasResult: !!transcriptionResult,
-              resultType: typeof transcriptionResult,
-              resultKeys: transcriptionResult ? Object.keys(transcriptionResult) : [],
-              resultStringified: JSON.stringify(transcriptionResult),
-              timestamp: new Date().toISOString()
-            });
-            
-            // Validate transcription result using utility function
-            if (!validateTranscriptionResponse(transcriptionResult, { userId, audioDataUriLength: audioDataUri.length })) {
-              throw new Error('Transcription service returned invalid response');
-            }
-            
-            const { transcription } = transcriptionResult;
-            
-            // Log transcription success
-            logInfo('Audio transcription completed', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'transcription-completed',
-              userId: userId,
-              transcriptionLength: transcription.length,
-              timestamp: new Date().toISOString()
-            });
-
-            form.setValue('transcription', transcription);
-
-            // Call AI services with proper error handling
-            logAIServiceCall('TitleSummaryService', 'generate', { transcriptionLength: transcription.length }, { userId });
-            logAIServiceCall('SentimentService', 'analyze', { transcriptionLength: transcription.length }, { userId });
-            
-            const [titleSummaryResult, sentimentResult] = await Promise.all([
-               generateMemoryTitleSummaryTags({ transcription }),
-               analyzeSentiment({ transcription })
-            ]);
-            
-            // Log raw AI service results for debugging
-            logDebug('Raw AI service results received', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'ai-results-received',
-              userId: userId,
-              titleSummaryResult: {
-                hasResult: !!titleSummaryResult,
-                resultType: typeof titleSummaryResult,
-                resultKeys: titleSummaryResult ? Object.keys(titleSummaryResult) : [],
-                resultStringified: JSON.stringify(titleSummaryResult)
-              },
-              sentimentResult: {
-                hasResult: !!sentimentResult,
-                resultType: typeof sentimentResult,
-                resultKeys: sentimentResult ? Object.keys(sentimentResult) : [],
-                resultStringified: JSON.stringify(sentimentResult)
-              },
-              timestamp: new Date().toISOString()
-            });
-            
-            // Validate results using utility functions
-            if (!validateTitleSummaryResponse(titleSummaryResult, { userId, transcriptionLength: transcription.length })) {
-              throw new Error('Title/summary generation service returned invalid response');
-            }
-            
-            if (!validateSentimentResponse(sentimentResult, { userId, transcriptionLength: transcription.length })) {
-              throw new Error('Sentiment analysis service returned invalid response');
-            }
-            
-            const { title, summary, tags } = titleSummaryResult;
-            const { sentiment } = sentimentResult;
-            
-            // Log AI generation success
-            logInfo('AI content generation completed', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'ai-generation-completed',
-              userId: userId,
-              generatedTitle: title,
-              generatedSummary: summary,
-              generatedTags: tags,
-              generatedSentiment: sentiment,
-              timestamp: new Date().toISOString()
-            });
-            
-            form.setValue('title', title);
-            form.setValue('summary', summary);
-            form.setValue('tags', tags);
-            setSentiment(sentiment);
-
-          } catch (error) {
-            // Log AI processing error with detailed context
-            logError('AI processing failed', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'ai-processing-failed',
-              userId: userId,
-              error: error instanceof Error ? error.message : 'Unknown error',
-              errorStack: error instanceof Error ? error.stack : undefined,
-              errorType: error instanceof Error ? error.constructor.name : typeof error,
-              context: {
-                audioBlobSize: blob.size,
-                audioBlobType: blob.type,
-                timestamp: new Date().toISOString()
-              }
-            }, error instanceof Error ? error : undefined);
-
-            console.error("AI Processing Error:", error);
-            
-            // Provide more specific error messages based on the error type
-            let errorTitle = 'AI Processing Failed';
-            let errorDescription = 'Could not process audio. Please try again.';
-            
-            if (error instanceof Error) {
-              if (error.message.includes('Transcription service')) {
-                errorTitle = 'Transcription Failed';
-                errorDescription = 'Could not convert audio to text. Please try again.';
-              } else if (error.message.includes('Title/summary generation')) {
-                errorTitle = 'Content Generation Failed';
-                errorDescription = 'Could not generate title and summary. Please try again.';
-              } else if (error.message.includes('Sentiment analysis')) {
-                errorTitle = 'Sentiment Analysis Failed';
-                errorDescription = 'Could not analyze audio sentiment. Please try again.';
-              }
-            }
-            
-            toast({
-              variant: 'destructive',
-              title: errorTitle,
-              description: errorDescription,
-            });
-            
-            // Log fallback behavior
-            logInfo('AI processing failed, audio recording still available', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'fallback-available',
-              userId: userId,
-              audioBlobSize: blob.size,
-              audioBlobType: blob.type,
-              timestamp: new Date().toISOString()
-            });
-            
-            // Create fallback values using utility function
-            const fallbackValues = createFallbackValues(blob);
-            
-            form.setValue('title', fallbackValues.title);
-            form.setValue('summary', fallbackValues.summary);
-            form.setValue('tags', fallbackValues.tags);
-            setSentiment(fallbackValues.sentiment as Memory['sentiment']);
-            
-            // Log fallback values set
-            logInfo('Fallback values set for failed AI processing', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'fallback-values-set',
-              userId: userId,
-              fallbackValues,
-              timestamp: new Date().toISOString()
-            });
-            
-          } finally {
-            setIsProcessingAI(false);
-            
-            // Log AI processing completion
-            logInfo('AI processing completed', {
-              component: 'NewMemoryForm',
-              function: 'startRecording',
-              action: 'ai-processing-completed',
-              userId: userId,
-              timestamp: new Date().toISOString()
-            });
-          }
+        // Start AI processing
+        processAudioWithAI(audioBlob);
       };
       
-      mediaRecorderRef.current.start();
+      mediaRecorder.onpause = () => {
+        setIsPaused(true);
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+        }
+      };
+      
+      mediaRecorder.onresume = () => {
+        setIsPaused(false);
+        // Restart timer
+        recordingTimerRef.current = setInterval(() => {
+          setRecordingTime((prev) => {
+            if (prev >= 300) {
+              stopRecording();
+              return prev;
+            }
+            return prev + 1;
+          });
+        }, 1000);
+      };
+      
+      mediaRecorder.start(1000); // Collect data every second
       setIsRecording(true);
+      setIsPaused(false);
       setRecordingTime(0);
       
-      // Log recording start success
-      logInfo('Recording started successfully', {
-        component: 'NewMemoryForm',
-        function: 'startRecording',
-        action: 'recording-started',
-        userId: userId,
-        mediaRecorderState: mediaRecorderRef.current.state,
-        timestamp: new Date().toISOString()
-      });
-
-      recordingIntervalRef.current = setInterval(() => {
+      // Start timer
+      recordingTimerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           if (prev >= 300) {
             stopRecording();
-            return 300;
+            return prev;
           }
           return prev + 1;
         });
       }, 1000);
+      
+      logInfo('Audio recording started', {
+        component: 'NewMemoryForm',
+        function: 'startRecording',
+        action: 'recording-started',
+        userId: userId
+      });
+      
     } catch (error) {
-      // Log recording start error
-      logError('Recording start failed', {
+      logError('Failed to start audio recording', {
         component: 'NewMemoryForm',
         function: 'startRecording',
         action: 'recording-failed',
-        userId: userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        errorStack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-      }, error instanceof Error ? error : undefined);
-
+        error: error instanceof Error ? error.message : String(error),
+        userId: userId
+      });
       toast({
-        variant: 'destructive',
-        title: 'Recording failed',
-        description: 'Could not access microphone. Please check permissions.',
+        title: "Recording Failed",
+        description: "Could not access microphone. Please check permissions.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording && !isPaused) {
+      mediaRecorderRef.current.pause();
+      logInfo('Audio recording paused', {
+        component: 'NewMemoryForm',
+        function: 'pauseRecording',
+        action: 'recording-paused',
+        recordingTime,
+        userId: userId
+      });
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && isRecording && isPaused) {
+      mediaRecorderRef.current.resume();
+      logInfo('Audio recording resumed', {
+        component: 'NewMemoryForm',
+        function: 'resumeRecording',
+        action: 'recording-resumed',
+        recordingTime,
+        userId: userId
       });
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      // Get current page info for context
-      const pageInfo = getCurrentPageInfo();
-      
-      // Log recording stop request with page context
-      logInfo('Recording stop requested', {
-        component: 'NewMemoryForm',
-        function: 'stopRecording',
-        action: 'stop-requested',
-        userId: userId,
-        pageContext: {
-          currentPath: pageInfo.currentPath,
-          sessionId: pageInfo.sessionId
-        },
-        recordingTime: recordingTime,
-        mediaRecorderState: mediaRecorderRef.current.state,
-        timestamp: new Date().toISOString()
-      });
-
-      // Log page event for recording stop
-      logPageEvent('Audio Recording Stopped', {
-        userId: userId,
-        recordingTime,
-        pagePath: pageInfo.currentPath,
-        timestamp: new Date().toISOString()
-      });
-
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
       
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        
-        // Log interval cleared
-        logDebug('Recording interval cleared', {
-          component: 'NewMemoryForm',
-          function: 'stopRecording',
-          action: 'interval-cleared',
-          userId: userId,
-          finalRecordingTime: recordingTime,
-          timestamp: new Date().toISOString()
-        });
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
       }
       
-      // Log recording stopped
-      logInfo('Recording stopped successfully', {
+      logInfo('Audio recording stopped', {
         component: 'NewMemoryForm',
         function: 'stopRecording',
         action: 'recording-stopped',
-        userId: userId,
         finalRecordingTime: recordingTime,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      // Log invalid stop request
-      logWarn('Invalid recording stop request', {
-        component: 'NewMemoryForm',
-        function: 'stopRecording',
-        action: 'invalid-stop-request',
-        userId: userId,
-        hasMediaRecorder: !!mediaRecorderRef.current,
-        isRecording,
-        timestamp: new Date().toISOString()
+        userId: userId
       });
     }
   };
@@ -1256,7 +1002,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         });
         return;
     }
-    if (mediaFiles.length === 0) {
+    if (includeMedia && mediaFiles.length === 0) {
         logWarn('No media files selected', {
           component: 'NewMemoryForm',
           function: 'onSubmit',
@@ -1433,16 +1179,18 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
     try {
         // Log media upload start
-        logInfo('Starting media file uploads', {
-          component: 'NewMemoryForm',
-          function: 'onSubmit',
-          action: 'media-upload-start',
-          userId: userId,
-          totalFiles: mediaFiles.length,
-          timestamp: new Date().toISOString()
-        });
+        if (includeMedia && mediaFiles.length > 0) {
+          logInfo('Starting media file uploads', {
+            component: 'NewMemoryForm',
+            function: 'onSubmit',
+            action: 'media-upload-start',
+            userId: userId,
+            totalFiles: mediaFiles.length,
+            timestamp: new Date().toISOString()
+          });
+        }
 
-        const mediaItems: Memory['media'] = await Promise.all(
+        const mediaItems: Memory['media'] = includeMedia && mediaFiles.length > 0 ? await Promise.all(
             mediaFiles.map(async (file, index) => {
                 const fileId = uuidv4();
                 const fileName = `${fileId}-${file.name}`;
@@ -1496,21 +1244,23 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     dataAiHint: file.type.startsWith('image/') ? 'user uploaded' : undefined,
                 };
             })
-        );
+        ) : [];
         
         // Log all media uploads completed
-        logInfo('All media files uploaded successfully', {
-          component: 'NewMemoryForm',
-          function: 'onSubmit',
-          action: 'media-upload-completed',
-          userId: userId,
-          totalFiles: mediaFiles.length,
-          mediaItems: mediaItems.map(item => ({
-            type: item.type,
-            hasUrl: !!item.url
-          })),
-          timestamp: new Date().toISOString()
-        });
+        if (includeMedia && mediaItems.length > 0) {
+          logInfo('All media files uploaded successfully', {
+            component: 'NewMemoryForm',
+            function: 'onSubmit',
+            action: 'media-upload-completed',
+            userId: userId,
+            totalFiles: mediaFiles.length,
+            mediaItems: mediaItems.map(item => ({
+              type: item.type,
+              hasUrl: !!item.url
+            })),
+            timestamp: new Date().toISOString()
+          });
+        }
         
         let audioUrl = '';
         if (audioBlob) {
@@ -1552,7 +1302,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             date: data.date.toISOString(),
             location: data.location,
             tags: data.tags,
-            mediaCount: mediaItems.length,
+            mediaCount: includeMedia ? mediaItems.length : 0,
             hasAudio: !!audioUrl,
             latitude,
             longitude,
@@ -1583,7 +1333,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           memoryId: memoryDoc.id,
           memoryData: {
             title: data.title,
-            mediaCount: mediaItems.length,
+            mediaCount: includeMedia ? mediaItems.length : 0,
             hasAudio: !!audioUrl
           },
           timestamp: new Date().toISOString()
@@ -1616,7 +1366,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           memoryId: memoryDoc.id,
           fromPath: pageInfo.currentPath,
           toPath: '/',
-          mediaCount: mediaItems.length,
+          mediaCount: includeMedia ? mediaItems.length : 0,
           hasAudio: !!audioUrl
         });
         
@@ -1633,7 +1383,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           errorStack: error instanceof Error ? error.stack : undefined,
           errorType: error instanceof Error ? error.constructor.name : typeof error,
           context: {
-            mediaFileCount: mediaFiles.length,
+            mediaFileCount: includeMedia ? mediaFiles.length : 0,
             hasAudioBlob: !!audioBlob,
             uploadProgress: uploadProgress,
             formData: {
@@ -1668,6 +1418,154 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     }
   };
 
+  const processAudioWithAI = async (audioBlob: Blob) => {
+    setIsProcessingAI(true);
+    
+    try {
+      const audioDataUri = await blobToDataUri(audioBlob);
+      
+      // Call transcribeAudio with proper error handling
+      logAIServiceCall('TranscriptionService', 'transcribe', { audioDataUriLength: audioDataUri.length }, { userId });
+      
+      const transcriptionResult = await transcribeAudio({ audioDataUri });
+      
+      // Validate transcription result using utility function
+      if (!validateTranscriptionResponse(transcriptionResult, { userId, audioDataUriLength: audioDataUri.length })) {
+        throw new Error('Transcription service returned invalid response');
+      }
+      
+      const { transcription } = transcriptionResult;
+      
+      // Log transcription success
+      logInfo('Audio transcription completed', {
+        component: 'NewMemoryForm',
+        function: 'processAudioWithAI',
+        action: 'transcription-completed',
+        userId: userId,
+        transcriptionLength: transcription.length
+      });
+
+      form.setValue('transcription', transcription);
+
+      // Call AI services with proper error handling
+      logAIServiceCall('TitleSummaryService', 'generate', { transcriptionLength: transcription.length }, { userId });
+      logAIServiceCall('SentimentService', 'analyze', { transcriptionLength: transcription.length }, { userId });
+      
+      const [titleSummaryResult, sentimentResult] = await Promise.all([
+        generateMemoryTitleSummaryTags({ transcription }),
+        analyzeSentiment({ transcription })
+      ]);
+      
+      // Validate results using utility functions
+      if (!validateTitleSummaryResponse(titleSummaryResult, { userId, transcriptionLength: transcription.length })) {
+        throw new Error('Title/summary generation service returned invalid response');
+      }
+      
+      if (!validateSentimentResponse(sentimentResult, { userId, transcriptionLength: transcription.length })) {
+        throw new Error('Sentiment analysis service returned invalid response');
+      }
+      
+      const { title, summary, tags } = titleSummaryResult;
+      const { sentiment } = sentimentResult;
+      
+      // Log AI generation success
+      logInfo('AI content generation completed', {
+        component: 'NewMemoryForm',
+        function: 'processAudioWithAI',
+        action: 'ai-generation-completed',
+        userId: userId,
+        generatedTitle: title,
+        generatedSummary: summary,
+        generatedTags: tags,
+        generatedSentiment: sentiment
+      });
+      
+      form.setValue('title', title);
+      form.setValue('summary', summary);
+      form.setValue('tags', tags);
+      setSentiment(sentiment);
+
+    } catch (error) {
+      // Log AI processing error with detailed context
+      logError('AI processing failed', {
+        component: 'NewMemoryForm',
+        function: 'processAudioWithAI',
+        action: 'ai-processing-failed',
+        userId: userId,
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        context: {
+          audioBlobSize: audioBlob.size,
+          audioBlobType: audioBlob.type
+        }
+      }, error instanceof Error ? error : undefined);
+
+      console.error("AI Processing Error:", error);
+      
+      // Provide more specific error messages based on the error type
+      let errorTitle = 'AI Processing Failed';
+      let errorDescription = 'Could not process audio. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Transcription service')) {
+          errorTitle = 'Transcription Failed';
+          errorDescription = 'Could not convert audio to text. Please try again.';
+        } else if (error.message.includes('Title/summary generation')) {
+          errorTitle = 'Content Generation Failed';
+          errorDescription = 'Could not generate title and summary. Please try again.';
+        } else if (error.message.includes('Sentiment analysis')) {
+          errorTitle = 'Sentiment Analysis Failed';
+          errorDescription = 'Could not analyze audio sentiment. Please try again.';
+        }
+      }
+      
+      toast({
+        variant: 'destructive',
+        title: errorTitle,
+        description: errorDescription,
+      });
+      
+      // Log fallback behavior
+      logInfo('AI processing failed, audio recording still available', {
+        component: 'NewMemoryForm',
+        function: 'processAudioWithAI',
+        action: 'fallback-available',
+        userId: userId,
+        audioBlobSize: audioBlob.size,
+        audioBlobType: audioBlob.type
+      });
+      
+      // Create fallback values using utility function
+      const fallbackValues = createFallbackValues(audioBlob);
+      
+      form.setValue('title', fallbackValues.title);
+      form.setValue('summary', fallbackValues.summary);
+      form.setValue('tags', fallbackValues.tags);
+      setSentiment(fallbackValues.sentiment as Memory['sentiment']);
+      
+      // Log fallback values set
+      logInfo('Fallback values set for failed AI processing', {
+        component: 'NewMemoryForm',
+        function: 'processAudioWithAI',
+        action: 'fallback-values-set',
+        userId: userId,
+        fallbackValues
+      });
+      
+    } finally {
+      setIsProcessingAI(false);
+      
+      // Log AI processing completion
+      logInfo('AI processing completed', {
+        component: 'NewMemoryForm',
+        function: 'processAudioWithAI',
+        action: 'ai-processing-completed',
+        userId: userId
+      });
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -1695,213 +1593,162 @@ export function NewMemoryForm({ userId }: { userId: string }) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-24">
         
-        {/* Media Upload - Mobile Optimized */}
+        {/* Audio Recording - Primary Focus */}
         <Card className="border-0 mobile-shadow">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Upload className="w-5 h-5" />
-              Media
+              <Mic className="w-6 h-6 text-primary" />
+              Audio Note & Transcription
             </CardTitle>
             <CardDescription className="text-sm">
-              Select up to 3 images or 1 video for your memory
+              Record an audio note (up to 300s). We'll transcribe it and generate content for you.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Media Grid - Mobile Optimized */}
-              <div className="space-y-3">
-                {/* File Count and Validation Info */}
-                {mediaFiles.length > 0 && (
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{mediaFiles.length} file(s) selected</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs">
-                        {mediaFiles.filter(f => f.type.startsWith('image/')).length} image(s)
-                      </span>
-                      {mediaFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
-                        <span className="text-xs">
-                          {mediaFiles.filter(f => f.type.startsWith('video/')).length} video(s)
-                        </span>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to remove all media files?')) {
-                            clearAllMedia();
-                          }
-                        }}
-                        className="text-xs text-destructive hover:text-destructive/80"
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                  </div>
-                )}
+          <CardContent className="space-y-4">
+            {/* Audio Recording Interface */}
+            <div className="flex flex-col items-center gap-4 p-6 border-2 border-dashed border-border rounded-lg bg-muted/20">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2">Record Your Memory</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Tap the microphone to start recording. You can pause and resume as needed.
+                </p>
+              </div>
 
-                {/* Media Grid */}
-                {isCompressing && (
-                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                      <span className="font-medium text-blue-800">Compressing files...</span>
-                      <span className="text-sm text-blue-600">{Math.round(compressionProgress)}%</span>
-                    </div>
-                    <Progress value={compressionProgress} className="h-2" />
-                    <p className="text-xs text-blue-600 mt-2">
-                      This will reduce file sizes for faster uploads
-                    </p>
-                  </div>
-                )}
-                
-                <div className="grid grid-cols-3 gap-3">
-                  {mediaFiles.map((file, i) => (
-                    <div key={`${file.name}-${i}`} className="relative aspect-square rounded-xl overflow-hidden border-2 border-border/40 bg-background">
-                      {file.type.startsWith('image/') ? (
-                        <Image 
-                          src={URL.createObjectURL(file)} 
-                          alt={file.name} 
-                          layout="fill" 
-                          objectFit="cover"
-                          className="transition-transform hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-black flex items-center justify-center">
-                          <Video className="w-8 h-8 text-white" />
-                        </div>
-                      )}
-                      
-                      {/* File Info Overlay */}
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 text-xs">
-                        <div className="truncate font-medium">{file.name}</div>
-                        <div className="text-muted-foreground">
-                          {(file.size / (1024 * 1024)).toFixed(1)} MB
-                          {file.size < (file as any).originalSize && (
-                            <span className="ml-1 text-green-400">
-                              ↓{Math.round(((file as any).originalSize - file.size) / (file as any).originalSize * 100)}%
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Remove Button */}
-                      <Button 
-                        size="icon" 
-                        variant="destructive" 
-                        className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg hover:scale-110 transition-transform"
-                        onClick={() => removeMediaFile(i)}
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  {/* Add Media Button - Mobile Optimized */}
-                  {mediaFiles.length < 3 && (
-                    <label className="aspect-square rounded-xl border-2 border-dashed border-primary/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors group">
-                      <Upload className="w-8 h-8 text-primary/60 group-hover:text-primary/80 transition-colors" />
-                      <span className="text-xs mt-1 text-primary/60 group-hover:text-primary/80 font-medium transition-colors">
-                        Add Media
-                      </span>
-                      <span className="text-xs text-muted-foreground mt-1">
-                        {3 - mediaFiles.length} remaining
-                      </span>
-                      <input 
-                        type="file" 
-                        multiple 
-                        accept="image/*,video/*" 
-                        className="sr-only" 
-                        onChange={handleFileChange}
-                        capture="environment"
-                      />
-                    </label>
+              {/* Recording Controls */}
+              <div className="flex items-center gap-4">
+                {/* Record/Stop Button */}
+                <Button 
+                  type="button" 
+                  onClick={isRecording ? stopRecording : startRecording} 
+                  className={`w-32 h-32 rounded-full ${isRecording ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'} shadow-lg transition-all duration-300 ${isRecording ? 'scale-110' : 'hover:scale-105'}`} 
+                  disabled={isProcessingAI}
+                >
+                  {isRecording ? (
+                    <Square className="w-12 h-12 text-white" />
+                  ) : (
+                    <Mic className="w-12 h-12 text-white" />
                   )}
-                </div>
+                </Button>
 
-                {/* Compression Settings */}
-                <div className="mt-4 p-3 bg-muted/30 rounded-lg border border-border/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-foreground">File Compression</span>
-                    <Badge variant="secondary" className="text-xs">
-                      Auto-optimized
-                    </Badge>
+                {/* Pause/Resume Button - Only show when recording */}
+                {isRecording && (
+                  <Button
+                    type="button"
+                    onClick={isPaused ? resumeRecording : pauseRecording}
+                    variant="outline"
+                    size="lg"
+                    className="w-20 h-20 rounded-full border-2"
+                    disabled={isProcessingAI}
+                  >
+                    {isPaused ? (
+                      <Play className="w-8 h-8" />
+                    ) : (
+                      <Pause className="w-8 h-8" />
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {/* Recording Status and Timer */}
+              {isRecording && (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <div className="text-lg font-mono font-semibold text-foreground">
+                    {formatTime(recordingTime)}
+                  </div>
+                  <div className="text-sm">
+                    {isPaused ? 'Recording Paused' : 'Recording...'}
                   </div>
                   
-                  {/* Compression Quality Selector */}
-                  <div className="mb-3">
-                    <label className="text-xs font-medium text-foreground mb-2 block">Compression Quality:</label>
-                    <div className="flex gap-2">
-                      {(['high', 'medium', 'low'] as const).map((quality) => (
-                        <Button
-                          key={quality}
-                          type="button"
-                          variant={compressionQuality === quality ? "default" : "outline"}
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          onClick={() => setCompressionQuality(quality)}
-                        >
-                          {quality.charAt(0).toUpperCase() + quality.slice(1)}
-                        </Button>
+                  {/* Audio Waves - Only animate when actively recording (not paused) */}
+                  {!isPaused && (
+                    <div className="flex items-center gap-1 mt-2">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div 
+                          key={i} 
+                          className="w-1 bg-destructive rounded-full animate-pulse" 
+                          style={{ 
+                            height: `${20 + Math.random() * 30}px`, 
+                            animationDelay: `${i * 0.1}s` 
+                          }} 
+                        />
                       ))}
                     </div>
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>• <strong>High:</strong> Minimal compression, best quality (20-40% size reduction)</p>
-                    <p>• <strong>Medium:</strong> Balanced compression (40-70% size reduction)</p>
-                    <p>• <strong>Low:</strong> Maximum compression (60-80% size reduction)</p>
-                    <p>• Videos: Optimized for web viewing with reduced bitrate</p>
-                  </div>
-                </div>
-
-                {/* File Type and Size Guidelines */}
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p>• Supported: JPG, PNG, GIF, MP4, MOV (max 50MB per file)</p>
-                  <p>• You can upload up to 3 images or 1 video</p>
-                  <p>• Images and videos cannot be mixed</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Mic className="w-6 h-6"/> Audio Note & Transcription</CardTitle>
-            <CardDescription>Record an audio note (up to 300s). We'll transcribe it and generate content for you.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Button type="button" onClick={isRecording ? stopRecording : startRecording} className={`w-24 ${isRecording ? 'bg-destructive hover:bg-destructive/90' : ''}`} disabled={isProcessingAI}>
-                {isRecording ? <Square className="mr-2 h-4 w-4"/> : <Mic className="mr-2 h-4 w-4"/>}
-                {isRecording ? 'Stop' : 'Record'}
-              </Button>
-              {isRecording && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-3 h-3 rounded-full bg-destructive animate-pulse"></div>
-                  <span>{formatTime(recordingTime)}</span>
+                  )}
                 </div>
               )}
-               {isProcessingAI && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Processing...</span>
+
+              {/* Processing Indicator */}
+              {isProcessingAI && (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                  <p className="text-sm">Processing audio with AI...</p>
                 </div>
               )}
+
+              {/* Audio Preview */}
               {audioBlob && !isRecording && !isProcessingAI && (
-                <audio controls src={URL.createObjectURL(audioBlob)} className="h-10"></audio>
+                <div className="w-full max-w-md">
+                  <audio controls src={URL.createObjectURL(audioBlob)} className="w-full h-12" />
+                </div>
               )}
             </div>
 
+            {/* Audio Compression Information - Collapsible */}
+            <div className="mt-4">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="audio-compression" className="border border-border/50 rounded-lg">
+                  <AccordionTrigger className="px-3 py-2 hover:no-underline">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <FileText className="w-4 h-4" />
+                      <span>Audio Compression & Quality Info</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <div className="text-xs text-muted-foreground space-y-2">
+                      <div className="p-2 bg-muted/20 rounded border border-border/30">
+                        <p className="font-medium mb-1">Audio Recording Quality:</p>
+                        <p>• <strong>Format:</strong> WebM (VP8 + Opus)</p>
+                        <p>• <strong>Sample Rate:</strong> 44.1 kHz</p>
+                        <p>• <strong>Bitrate:</strong> 128 kbps (optimized for speech)</p>
+                        <p>• <strong>Duration Limit:</strong> 300 seconds (5 minutes)</p>
+                      </div>
+                      <div className="p-2 bg-muted/20 rounded border border-border/30">
+                        <p className="font-medium mb-1">Compression Benefits:</p>
+                        <p>• <strong>File Size:</strong> ~1-2 MB per minute of audio</p>
+                        <p>• <strong>Upload Speed:</strong> Optimized for mobile networks</p>
+                        <p>• <strong>Storage:</strong> Efficient cloud storage usage</p>
+                        <p>• <strong>Playback:</strong> Fast loading and streaming</p>
+                      </div>
+                      <div className="p-2 bg-muted/20 rounded border border-border/30">
+                        <p className="font-medium mb-1">AI Processing:</p>
+                        <p>• <strong>Transcription:</strong> High-accuracy speech-to-text</p>
+                        <p>• <strong>Sentiment Analysis:</strong> Emotion detection from voice</p>
+                        <p>• <strong>Content Generation:</strong> AI-powered title, summary, and tags</p>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+
+            {/* Transcription Field */}
             <FormField
               control={form.control}
               name="transcription"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center gap-2 font-medium"><FileText className="w-5 h-5"/> Transcription</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-medium">
+                    <FileText className="w-5 h-5"/> 
+                    Transcription
+                  </FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Your transcription will appear here..." {...field} rows={5} disabled={isProcessingAI} />
+                    <Textarea 
+                      placeholder="Your transcription will appear here..." 
+                      {...field} 
+                      rows={5} 
+                      disabled={isProcessingAI} 
+                      className="resize-none"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -1909,72 +1756,279 @@ export function NewMemoryForm({ userId }: { userId: string }) {
             />
           </CardContent>
         </Card>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Wand2 className="w-6 h-6"/> AI Generated Content</CardTitle>
-                <CardDescription>Review and edit the AI-generated title, summary, and tags.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-medium">Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Sunny Day at the Beach" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+
+        {/* Media Upload - Optional and right after audio */}
+        <Card className="border-0 mobile-shadow">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Upload className="w-5 h-5" />
+                  Media
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Add photos or videos to enhance your memory
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={includeMedia}
+                  onCheckedChange={setIncludeMedia}
+                  className="data-[state=checked]:bg-primary"
                 />
-                <FormField
-                  control={form.control}
-                  name="summary"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-medium">Summary</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="e.g., A wonderful day spent with family..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+              </div>
+            </div>
+          </CardHeader>
+          
+          {includeMedia && (
+            <CardContent>
+              <div className="space-y-4">
+                {/* Media Grid */}
+                <div className="space-y-3">
+                  {/* File Count and Validation Info */}
+                  {mediaFiles.length > 0 && (
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{mediaFiles.length} file(s) selected</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">
+                          {mediaFiles.filter(f => f.type.startsWith('image/')).length} image(s)
+                        </span>
+                        {mediaFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
+                          <span className="text-xs">
+                            {mediaFiles.filter(f => f.type.startsWith('video/')).length} video(s)
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to remove all media files?')) {
+                              clearAllMedia();
+                            }
+                          }}
+                          className="text-xs text-destructive hover:text-destructive/80"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="tags"
-                  render={() => (
-                    <FormItem>
-                       <FormLabel className="flex items-center gap-2 font-medium"><Tag className="w-5 h-5"/> Tags</FormLabel>
-                      <FormControl>
-                          <div className="flex items-center gap-2 border rounded-md p-2 flex-wrap">
-                              {tags.map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
-                                  {tag}
-                                  <button type="button" onClick={() => removeTag(tag)} className="ml-2 rounded-full hover:bg-destructive/20 p-0.5">
-                                      <X className="h-3 w-3" />
-                                  </button>
-                                </Badge>
-                              ))}
-                                <input
-                                    type="text"
-                                    value={tagInput}
-                                    onChange={(e) => setTagInput(e.target.value)}
-                                    onKeyDown={handleTagKeyDown}
-                                    placeholder="Add a tag and press Enter..."
-                                    className="bg-transparent outline-none flex-1 min-w-[150px] p-1"
-                                />
+
+                  {/* Compression Progress */}
+                  {isCompressing && (
+                    <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                        <span className="font-medium text-blue-800">Compressing files...</span>
+                        <span className="text-sm text-blue-600">{Math.round(compressionProgress)}%</span>
+                      </div>
+                      <Progress value={compressionProgress} className="h-2" />
+                      <p className="text-xs text-blue-600 mt-2">
+                        This will reduce file sizes for faster uploads
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Media Grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {mediaFiles.map((file, i) => (
+                      <div key={`${file.name}-${i}`} className="relative aspect-square rounded-xl overflow-hidden border-2 border-border/40 bg-background">
+                        {file.type.startsWith('image/') ? (
+                          <Image 
+                            src={URL.createObjectURL(file)} 
+                            alt={file.name} 
+                            layout="fill" 
+                            objectFit="cover"
+                            className="transition-transform hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-black flex items-center justify-center">
+                            <Video className="w-8 h-8 text-white" />
                           </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        )}
+                        
+                        {/* File Info Overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 text-xs">
+                          <div className="truncate font-medium">{file.name}</div>
+                          <div className="text-muted-foreground">
+                            {(file.size / (1024 * 1024)).toFixed(1)} MB
+                            {file.size < (file as any).originalSize && (
+                              <span className="ml-1 text-green-400">
+                                ↓{Math.round(((file as any).originalSize - file.size) / (file as any).originalSize * 100)}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Remove Button */}
+                        <Button 
+                          size="icon" 
+                          variant="destructive" 
+                          className="absolute top-1 right-1 h-6 w-6 rounded-full shadow-lg hover:scale-110 transition-transform"
+                          onClick={() => removeMediaFile(i)}
+                          aria-label={`Remove ${file.name}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    {/* Add Media Button */}
+                    {mediaFiles.length < 3 && (
+                      <label className="aspect-square rounded-xl border-2 border-dashed border-primary/30 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors group">
+                        <Upload className="w-8 h-8 text-primary/60 group-hover:text-primary/80 transition-colors" />
+                        <span className="text-xs mt-1 text-primary/60 group-hover:text-primary/80 font-medium transition-colors">
+                          Add Media
+                        </span>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {3 - mediaFiles.length} remaining
+                        </span>
+                        <input 
+                          type="file" 
+                          multiple 
+                          accept="image/*,video/*" 
+                          className="sr-only" 
+                          onChange={handleFileChange}
+                          capture="environment"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Compression Settings */}
+                  <div className="mt-4">
+                    <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="media-compression" className="border border-border/50 rounded-lg">
+                        <AccordionTrigger className="px-3 py-2 hover:no-underline">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <Badge variant="secondary" className="text-xs">
+                              Auto-optimized
+                            </Badge>
+                            <span>File Compression Settings</span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-3 pb-3">
+                          <div className="space-y-3">
+                            {/* Compression Quality Selector */}
+                            <div>
+                              <label className="text-xs font-medium text-foreground mb-2 block">Compression Quality:</label>
+                              <div className="flex gap-2">
+                                {([
+                                  { value: 0.9, label: 'High' },
+                                  { value: 0.8, label: 'Medium' },
+                                  { value: 0.7, label: 'Low' }
+                                ] as const).map((quality) => (
+                                  <Button
+                                    key={quality.value}
+                                    type="button"
+                                    variant={Math.abs(compressionQuality - quality.value) < 0.1 ? "default" : "outline"}
+                                    size="sm"
+                                    className="text-xs h-7 px-2"
+                                    onClick={() => setCompressionQuality(quality.value)}
+                                  >
+                                    {quality.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            <div className="text-xs text-muted-foreground space-y-1">
+                              <p>• <strong>High:</strong> Minimal compression, best quality (20-40% size reduction)</p>
+                              <p>• <strong>Medium:</strong> Balanced compression (40-70% size reduction)</p>
+                              <p>• <strong>Low:</strong> Maximum compression (60-80% size reduction)</p>
+                              <p>• Videos: Optimized for web viewing with reduced bitrate</p>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </div>
+
+                  {/* File Type and Size Guidelines */}
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>• Supported: JPG, PNG, GIF, MP4, MOV (max 50MB per file)</p>
+                    <p>• You can upload up to 3 images or 1 video</p>
+                    <p>• Images and videos cannot be mixed</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
+          )}
         </Card>
 
+        {/* AI Generated Content */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wand2 className="w-6 h-6"/> 
+              AI Generated Content
+            </CardTitle>
+            <CardDescription>Review and edit the AI-generated title, summary, and tags.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Sunny Day at the Beach" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="summary"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">Summary</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="e.g., A wonderful day spent with family..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="tags"
+              render={() => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2 font-medium">
+                    <Tag className="w-5 h-5"/> 
+                    Tags
+                  </FormLabel>
+                  <FormControl>
+                    <div className="flex items-center gap-2 border rounded-md p-2 flex-wrap">
+                      {tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
+                          {tag}
+                          <button type="button" onClick={() => removeTag(tag)} className="ml-2 rounded-full hover:bg-destructive/20 p-0.5">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleTagKeyDown}
+                        placeholder="Add a tag and press Enter..."
+                        className="bg-transparent outline-none flex-1 min-w-[150px] p-1"
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Details */}
         <Card>
           <CardHeader>
             <CardTitle>Details</CardTitle>
@@ -1986,7 +2040,10 @@ export function NewMemoryForm({ userId }: { userId: string }) {
               name="date"
               render={({ field }) => (
                 <FormItem className="flex flex-col gap-2">
-                  <FormLabel className="flex items-center gap-2 font-medium"><CalendarIcon className="w-5 h-5"/> Date</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-medium">
+                    <CalendarIcon className="w-5 h-5"/> 
+                    Date
+                  </FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -2004,26 +2061,29 @@ export function NewMemoryForm({ userId }: { userId: string }) {
               )}
             />
             <div className="space-y-2">
-                 <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                       <FormLabel className="flex items-center gap-2 font-medium"><MapPin className="w-5 h-5"/> Location</FormLabel>
-                        <div className="flex items-center gap-2">
-                           <FormControl>
-                             <Input placeholder="Search for a location" {...field} />
-                          </FormControl>
-                           <Button type="button" size="icon" variant="outline" onClick={handleLocationSearch}>
-                            <Search className="w-4 h-4" />
-                            <span className="sr-only">Search Location</span>
-                           </Button>
-                       </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Map latitude={latitude} longitude={longitude} />
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 font-medium">
+                      <MapPin className="w-5 h-5"/> 
+                      Location
+                    </FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <Input placeholder="Search for a location" {...field} />
+                      </FormControl>
+                      <Button type="button" size="icon" variant="outline" onClick={handleLocationSearch}>
+                        <Search className="w-4 h-4" />
+                        <span className="sr-only">Search Location</span>
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Map latitude={latitude} longitude={longitude} />
             </div>
           </CardContent>
         </Card>
@@ -2032,17 +2092,19 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-xl border-t mobile-safe-bottom">
           <Button 
             type="submit" 
-            size="lg" 
-            disabled={isUploading || isProcessingAI} 
-            className="w-full h-12 text-base font-medium"
+            disabled={isSubmitting || isProcessingAI} 
+            className="w-full mt-6 mb-8"
           >
-            {isUploading ? (
+            {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Saving Memory...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating Memory...
               </>
             ) : (
-              'Save Memory'
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Memory
+              </>
             )}
           </Button>
         </div>

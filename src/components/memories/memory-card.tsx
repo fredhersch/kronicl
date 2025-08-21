@@ -25,14 +25,23 @@ export function MemoryCard({ memory }: { memory: Memory }) {
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
+          ) : hasAudio ? (
+            // Audio-only memory - show audio icon
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex flex-col items-center justify-center">
+              <div className="text-primary/60 text-4xl sm:text-5xl mb-2">🎤</div>
+              <div className="text-primary/40 text-xs sm:text-sm text-center px-2">
+                Audio Memory
+              </div>
+            </div>
           ) : (
+            // No media or audio - show camera icon
             <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
               <div className="text-primary/40 text-2xl sm:text-4xl">📸</div>
             </div>
           )}
           
-          {/* Audio Indicator */}
-          {hasAudio && (
+          {/* Audio Indicator - Only show when there's both media and audio */}
+          {hasAudio && primaryMedia && (
             <div className={`absolute ${isMobile ? 'top-1.5 right-1.5' : 'top-2 right-2 sm:top-3 sm:right-3'} bg-black/60 backdrop-blur-sm rounded-full ${isMobile ? 'p-1' : 'p-1.5 sm:p-2'}`}>
               <Play className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3 sm:w-4 sm:h-4'} text-white fill-white`} />
             </div>
