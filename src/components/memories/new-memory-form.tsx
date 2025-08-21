@@ -54,6 +54,7 @@ import {
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { Memory } from '@/lib/types';
+import { getPhoto } from '@/lib/photo-store';
 import { compressImages, getOptimalCompressionOptions, shouldCompressImage, formatFileSize } from '@/lib/image-compression';
 import { compressVideo, getOptimalVideoCompressionOptions, shouldCompressVideo, isVideoFormatSupported } from '@/lib/video-compression';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -170,6 +171,14 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         fetchLocationName(latitude, longitude); // Use default location if geolocation is not supported
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const photo = getPhoto();
+    if (photo) {
+      addMediaFiles([photo]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-set date from first media file when media files change
