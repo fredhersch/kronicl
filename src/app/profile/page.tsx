@@ -23,8 +23,8 @@ export default function ProfilePage() {
 
   if (loading || !user) {
     return (
-        <div className="flex flex-col min-h-screen bg-background">
-             <header className="sticky top-0 z-10 flex items-center h-16 px-4 border-b bg-background/80 backdrop-blur-sm sm:px-6 md:px-8">
+        <div className="flex flex-col min-h-screen bg-white">
+             <header className="sticky top-0 z-10 flex items-center h-16 px-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm sm:px-6 md:px-8">
                 <Skeleton className="h-8 w-8 rounded-full" />
                 <Skeleton className="h-6 w-32 ml-4" />
             </header>
@@ -57,8 +57,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background font-body">
-       <header className="sticky top-0 z-10 flex items-center h-16 px-4 border-b bg-background/80 backdrop-blur-sm sm:px-6 md:px-8">
+    <div className="min-h-screen bg-white">
+       <header className="sticky top-0 z-10 flex items-center h-16 px-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm sm:px-6 md:px-8">
         <Link href="/">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="w-5 h-5" />

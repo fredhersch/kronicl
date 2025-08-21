@@ -1,9 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { PlusCircle, Search, Home, User, Plus, LogOut, Settings, FileText } from 'lucide-react';
+import { PlusCircle, Search, Home, User, Plus, LogOut, Settings, BookOpen, Heart, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Logo } from './icons/logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname } from 'next/navigation';
@@ -23,40 +22,43 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
   return (
     <>
       {/* Top Header - Mobile Optimized */}
-      <header className="sticky top-0 z-50 flex items-center mobile-header px-4 border-b bg-background/95 backdrop-blur-xl mobile-safe-top">
-        <div className="flex items-center gap-3 flex-1">
-          <Link href="/" className="flex items-center gap-2">
-            <Logo className="w-8 h-8 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">MemoryLane</h1>
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-sm shadow-sm">
+        <div className="flex items-center justify-between h-16 px-4">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 bg-indigo-600 rounded-xl shadow-sm flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-white" />
+              </div>
+              <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
+                <Heart className="w-2 h-2 text-white fill-current" />
+              </div>
+            </div>
+            <h1 className="text-lg font-semibold text-slate-900">Memory Lane</h1>
           </Link>
-        </div>
-        
-        {/* Search Bar - Mobile Optimized */}
-        <div className="flex-1 max-w-xs mx-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search memories..."
-              className="w-full pl-10 pr-4 h-10 rounded-full bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-primary/20"
-              onChange={(e) => onSearch(e.target.value)}
-            />
-          </div>
-        </div>
-        
-        {/* User Avatar with Logout Menu */}
-        <div className="flex items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative w-9 h-9 rounded-full p-0 hover:bg-muted/50">
-                <Avatar className="w-9 h-9 border-2 border-primary/20">
-                  <AvatarImage src={user?.photoURL ?? undefined} alt={user?.displayName ?? 'User'} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                    {user?.displayName?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
+          <div className="flex items-center gap-4">
+            {/* Search Bar */}
+            <div className="relative max-w-xs">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                type="search"
+                placeholder="Search memories..."
+                className="w-64 pl-10 pr-4 h-10 rounded-lg bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                onChange={(e) => onSearch(e.target.value)}
+              />
+            </div>
+            
+            {/* User Avatar with Logout Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative w-9 h-9 rounded-full p-0 hover:bg-slate-100">
+                  <Avatar className="w-9 h-9 border-2 border-indigo-200">
+                    <AvatarImage src={user?.photoURL ?? undefined} alt={user?.displayName ?? 'User'} />
+                    <AvatarFallback className="bg-indigo-600 text-white font-medium">
+                      {user?.displayName?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel className="flex items-center gap-2">
                 <Avatar className="w-6 h-6">
@@ -71,40 +73,40 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <Link href="/logs" className="w-full">
-                <DropdownMenuItem className="cursor-pointer">
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>View Logs</span>
-                </DropdownMenuItem>
-              </Link>
-              <DropdownMenuSeparator />
+
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sign Out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
       {/* Bottom Navigation - Mobile App Style */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t mobile-safe-bottom">
-        <div className="flex items-center justify-around mobile-bottom-nav px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg">
+        <div className="flex items-center justify-around h-16 px-2">
           <Link href="/" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
-            <Home className={`w-6 h-6 ${pathname === '/' ? 'text-primary' : 'text-muted-foreground'}`} />
-            <span className={`text-xs ${pathname === '/' ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+            <Home className={`w-6 h-6 ${pathname === '/' ? 'text-indigo-600' : 'text-slate-400'}`} />
+            <span className={`text-xs ${pathname === '/' ? 'text-indigo-600 font-medium' : 'text-slate-400'}`}>
               Home
             </span>
           </Link>
           
-          <Link href="/memories/new" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
-            <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg">
-              <Plus className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="text-xs text-primary font-medium">New</span>
+          <Link href="/welcome" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
+            <Sparkles className={`w-6 h-6 ${pathname === '/welcome' ? 'text-indigo-600' : 'text-slate-400'}`} />
+            <span className={`text-xs ${pathname === '/welcome' ? 'text-indigo-600 font-medium' : 'text-slate-400'}`}>
+              Welcome
+            </span>
           </Link>
           
-          {/* Removed Profile link from bottom navigation */}
+          <Link href="/memories/new" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
+            <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+              <Plus className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-xs text-indigo-600 font-medium">New</span>
+          </Link>
         </div>
       </nav>
     </>

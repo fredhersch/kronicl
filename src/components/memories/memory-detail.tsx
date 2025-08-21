@@ -57,15 +57,18 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-2 space-y-8">
           <Card>
-             <CardHeader>
-               <CardTitle className="font-headline text-3xl">{memory.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 pt-6">
                 <div>
-                  <h3 className="flex items-center gap-2 font-semibold text-lg text-foreground/90 mb-2">
-                    <BookOpen className="w-5 h-5 text-accent"/>
-                    Summary
-                  </h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="flex items-center gap-2 font-semibold text-lg text-foreground/90">
+                      <BookOpen className="w-5 h-5 text-accent"/>
+                      Summary
+                    </h3>
+                    <Badge variant={sentimentVariant[memory.sentiment]} className="capitalize flex items-center gap-1">
+                      <div className="text-accent">{SentimentIcon}</div>
+                      {memory.sentiment}
+                    </Badge>
+                  </div>
                   <p className="text-muted-foreground">{memory.summary}</p>
                 </div>
                 
@@ -94,17 +97,16 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
                 </Accordion>
 
                 <div>
-                   <h3 className="flex items-center gap-2 font-semibold text-lg text-foreground/90 mb-3">
+                   <div className="flex items-center gap-3 mb-3">
                      <Tag className="w-5 h-5 text-accent"/>
-                     Tags
-                   </h3>
-                   <div className="flex flex-wrap gap-2">
-                    {memory.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="bg-accent/20 text-accent-foreground/80">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
+                     <div className="flex flex-wrap gap-2">
+                      {memory.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="bg-accent/20 text-accent-foreground/80">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                   </div>
                 </div>
 
             </CardContent>
@@ -124,13 +126,7 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
                   <p className="text-muted-foreground">{format(new Date(memory.date), 'PPP p')}</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <CalendarDays className="w-5 h-5 mt-1 text-accent" />
-                <div>
-                  <h3 className="font-semibold">Created</h3>
-                  <p className="text-muted-foreground">{formatCreationTime(memory.clientCreatedAt)}</p>
-                </div>
-              </div>
+
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 mt-1 text-accent" />
                 <div>
@@ -138,15 +134,7 @@ export function MemoryDetail({ memory }: { memory: Memory }) {
                   <p className="text-muted-foreground">{memory.location}</p>
                 </div>
               </div>
-               <div className="flex items-start gap-3">
-                <div className="mt-0.5 text-accent">{SentimentIcon}</div>
-                 <div>
-                  <h3 className="font-semibold">Sentiment</h3>
-                   <Badge variant={sentimentVariant[memory.sentiment]} className="capitalize">
-                      {memory.sentiment}
-                   </Badge>
-                </div>
-              </div>
+
                <div className="mt-4">
                  <Map latitude={memory.latitude} longitude={memory.longitude} />
                </div>

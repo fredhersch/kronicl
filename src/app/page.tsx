@@ -285,8 +285,8 @@ export default function Dashboard() {
     });
 
     return (
-        <div className="flex flex-col min-h-screen bg-background">
-          <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 border-b bg-background/80 backdrop-blur-sm sm:px-6 md:px-8">
+        <div className="flex flex-col min-h-screen bg-white">
+          <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm sm:px-6 md:px-8">
             <div className="flex items-center gap-2">
               <Skeleton className="h-8 w-8 rounded-full" />
               <Skeleton className="h-6 w-32" />
@@ -324,7 +324,7 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-white">
       <Header onSearch={handleSearch} />
       <main className="flex-1 p-4 sm:p-6 md:p-8">
         <MemoryList memories={filteredMemories} />

@@ -50,6 +50,7 @@ import {
   Plus,
   Play,
   Pause,
+  Info,
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -928,12 +929,22 @@ export function NewMemoryForm({ userId }: { userId: string }) {
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       e.preventDefault();
-      const newTag = tagInput.trim();
-      if (newTag && !tags.includes(newTag)) {
-        const newTags = [...tags, newTag];
-        form.setValue('tags', newTags, { shouldValidate: true });
-      }
-      setTagInput('');
+      addTag();
+    }
+  };
+
+  const addTag = () => {
+    const newTag = tagInput.trim();
+    if (newTag && !tags.includes(newTag)) {
+      const newTags = [...tags, newTag];
+      form.setValue('tags', newTags, { shouldValidate: true });
+    }
+    setTagInput('');
+  };
+
+  const handleTagBlur = () => {
+    if (tagInput.trim()) {
+      addTag();
     }
   };
   
@@ -1591,25 +1602,57 @@ export function NewMemoryForm({ userId }: { userId: string }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-24">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pb-24">
         
         {/* Audio Recording - Primary Focus */}
-        <Card className="border-0 mobile-shadow">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Mic className="w-6 h-6 text-primary" />
-              Audio Note & Transcription
+        <Card className="clean-card border border-slate-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between text-lg font-semibold text-slate-900">
+                <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
+                  <Mic className="w-3.5 h-3.5 text-white" />
+                </div>
+                Record Your Memory
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="text-xs text-muted-foreground space-y-2">
+                    <div className="p-2 bg-muted/50 rounded border border-border/30">
+                      <p className="font-medium text-foreground mb-1">Audio Recording Quality:</p>
+                      <p>• <strong>Format:</strong> WebM (VP8 + Opus)</p>
+                      <p>• <strong>Sample Rate:</strong> 44.1 kHz</p>
+                      <p>• <strong>Bitrate:</strong> 128 kbps (optimized for speech)</p>
+                      <p>• <strong>Duration Limit:</strong> 300 seconds (5 minutes)</p>
+                    </div>
+                    <div className="p-2 bg-muted/50 rounded border border-border/30">
+                      <p className="font-medium text-foreground mb-1">Compression Benefits:</p>
+                      <p>• <strong>File Size:</strong> ~1-2 MB per minute of audio</p>
+                      <p>• <strong>Upload Speed:</strong> Optimized for mobile networks</p>
+                      <p>• <strong>Storage:</strong> Efficient cloud storage usage</p>
+                    </div>
+                    <div className="p-2 bg-muted/50 rounded border border-border/30">
+                      <p className="font-medium text-foreground mb-1">AI Processing:</p>
+                      <p>• <strong>Transcription:</strong> High-accuracy speech-to-text</p>
+                      <p>• <strong>Content Generation:</strong> AI-powered title, summary, and tags</p>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </CardTitle>
-            <CardDescription className="text-sm">
+            <CardDescription className="text-sm text-slate-600">
               Record an audio note (up to 300s). We'll transcribe it and generate content for you.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {/* Audio Recording Interface */}
-            <div className="flex flex-col items-center gap-4 p-6 border-2 border-dashed border-border rounded-lg bg-muted/20">
+            <div className="flex flex-col items-center gap-3 p-4 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50">
               <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">Record Your Memory</h3>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-slate-600 mb-3">
                   Tap the microphone to start recording. You can pause and resume as needed.
                 </p>
               </div>
@@ -1620,13 +1663,13 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                 <Button 
                   type="button" 
                   onClick={isRecording ? stopRecording : startRecording} 
-                  className={`w-32 h-32 rounded-full ${isRecording ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'} shadow-lg transition-all duration-300 ${isRecording ? 'scale-110' : 'hover:scale-105'}`} 
+                  className={`w-24 h-24 rounded-full ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-700'} shadow-lg transition-all duration-300 ${isRecording ? 'scale-110' : 'hover:scale-105'}`} 
                   disabled={isProcessingAI}
                 >
                   {isRecording ? (
-                    <Square className="w-12 h-12 text-white" />
+                    <Square className="w-9 h-9 text-white" />
                   ) : (
-                    <Mic className="w-12 h-12 text-white" />
+                    <Mic className="w-9 h-9 text-white" />
                   )}
                 </Button>
 
@@ -1637,7 +1680,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     onClick={isPaused ? resumeRecording : pauseRecording}
                     variant="outline"
                     size="lg"
-                    className="w-20 h-20 rounded-full border-2"
+                    className="w-16 h-16 rounded-full border-2 border-slate-300 hover:bg-slate-50"
                     disabled={isProcessingAI}
                   >
                     {isPaused ? (
@@ -1693,90 +1736,62 @@ export function NewMemoryForm({ userId }: { userId: string }) {
               )}
             </div>
 
-            {/* Audio Compression Information - Collapsible */}
-            <div className="mt-4">
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="audio-compression" className="border border-border/50 rounded-lg">
-                  <AccordionTrigger className="px-3 py-2 hover:no-underline">
-                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <FileText className="w-4 h-4" />
-                      <span>Audio Compression & Quality Info</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-3 pb-3">
-                    <div className="text-xs text-muted-foreground space-y-2">
-                      <div className="p-2 bg-muted/20 rounded border border-border/30">
-                        <p className="font-medium mb-1">Audio Recording Quality:</p>
-                        <p>• <strong>Format:</strong> WebM (VP8 + Opus)</p>
-                        <p>• <strong>Sample Rate:</strong> 44.1 kHz</p>
-                        <p>• <strong>Bitrate:</strong> 128 kbps (optimized for speech)</p>
-                        <p>• <strong>Duration Limit:</strong> 300 seconds (5 minutes)</p>
-                      </div>
-                      <div className="p-2 bg-muted/20 rounded border border-border/30">
-                        <p className="font-medium mb-1">Compression Benefits:</p>
-                        <p>• <strong>File Size:</strong> ~1-2 MB per minute of audio</p>
-                        <p>• <strong>Upload Speed:</strong> Optimized for mobile networks</p>
-                        <p>• <strong>Storage:</strong> Efficient cloud storage usage</p>
-                        <p>• <strong>Playback:</strong> Fast loading and streaming</p>
-                      </div>
-                      <div className="p-2 bg-muted/20 rounded border border-border/30">
-                        <p className="font-medium mb-1">AI Processing:</p>
-                        <p>• <strong>Transcription:</strong> High-accuracy speech-to-text</p>
-                        <p>• <strong>Sentiment Analysis:</strong> Emotion detection from voice</p>
-                        <p>• <strong>Content Generation:</strong> AI-powered title, summary, and tags</p>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-
             {/* Transcription Field */}
-            <FormField
-              control={form.control}
-              name="transcription"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2 font-medium">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="transcription">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2 font-medium">
                     <FileText className="w-5 h-5"/> 
                     Transcription
-                  </FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Your transcription will appear here..." 
-                      {...field} 
-                      rows={5} 
-                      disabled={isProcessingAI} 
-                      className="resize-none"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <FormField
+                    control={form.control}
+                    name="transcription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Your transcription will appear here..." 
+                            {...field} 
+                            rows={5} 
+                            disabled={isProcessingAI} 
+                            className="resize-none"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
 
         {/* Media Upload - Optional and right after audio */}
-        <Card className="border-0 mobile-shadow">
-          <CardHeader className="pb-4">
+        <Card className="clean-card border border-slate-200 shadow-sm">
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Upload className="w-5 h-5" />
-              Media
-            </CardTitle>
-            <CardDescription className="text-sm">
-                  Add photos or videos to enhance your memory
-            </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={includeMedia}
-                  onCheckedChange={setIncludeMedia}
-                  className="data-[state=checked]:bg-primary"
-                />
-              </div>
+                <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                        <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
+                        <Upload className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        Media
+                    </CardTitle>
+                    <CardDescription className="text-sm text-slate-600 mt-1">
+                        Add photos or videos to enhance your memory
+                    </CardDescription>
+                </div>
+                                 <div className="flex items-center gap-2 pl-4">
+                     <Switch
+                       checked={includeMedia}
+                       onCheckedChange={setIncludeMedia}
+                       className="data-[state=checked]:bg-indigo-600 data-[state=unchecked]:bg-slate-200 border-0 h-5 w-10 rounded-xl"
+                     />
+                 </div>
             </div>
           </CardHeader>
           
@@ -1826,8 +1841,8 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                       <p className="text-xs text-blue-600 mt-2">
                         This will reduce file sizes for faster uploads
                       </p>
-                    </div>
-                  )}
+                  </div>
+                )}
 
                 {/* Media Grid */}
                 <div className="grid grid-cols-3 gap-3">
@@ -1942,7 +1957,7 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                         </AccordionContent>
                       </AccordionItem>
                     </Accordion>
-                  </div>
+                </div>
 
                 {/* File Type and Size Guidelines */}
                 <div className="text-xs text-muted-foreground space-y-1">
@@ -1955,17 +1970,19 @@ export function NewMemoryForm({ userId }: { userId: string }) {
           </CardContent>
           )}
         </Card>
-        
+
         {/* AI Generated Content */}
-        <Card>
-            <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Wand2 className="w-6 h-6"/> 
+        <Card className="clean-card border border-slate-200 shadow-sm">
+            <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+              <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
+                <Wand2 className="w-3.5 h-3.5 text-white" />
+              </div>
               AI Generated Content
             </CardTitle>
-                <CardDescription>Review and edit the AI-generated title, summary, and tags.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+                <CardDescription className="text-sm text-slate-600">Review and edit the AI-generated title, summary, and tags.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
                   name="title"
@@ -2002,12 +2019,12 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     Tags
                   </FormLabel>
                       <FormControl>
-                          <div className="flex items-center gap-2 border rounded-md p-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 border rounded-md p-2 flex-wrap">
                               {tags.map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="text-sm py-1 px-3">
-                                  {tag}
-                                  <button type="button" onClick={() => removeTag(tag)} className="ml-2 rounded-full hover:bg-destructive/20 p-0.5">
-                            <X className="w-3 h-3" />
+                                <Badge key={i} variant="secondary" className="text-xs py-0.5 pl-2 pr-1 h-6 flex items-center">
+                                  <span>{tag}</span>
+                                  <button type="button" onClick={() => removeTag(tag)} className="ml-1 rounded-full hover:bg-destructive/20 p-0.5 flex items-center justify-center">
+                                    <X className="w-2.5 h-2.5" />
                                   </button>
                                 </Badge>
                               ))}
@@ -2016,8 +2033,9 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                                     value={tagInput}
                                     onChange={(e) => setTagInput(e.target.value)}
                                     onKeyDown={handleTagKeyDown}
+                                    onBlur={handleTagBlur}
                                     placeholder="Add a tag and press Enter..."
-                                    className="bg-transparent outline-none flex-1 min-w-[150px] p-1"
+                                    className="bg-transparent outline-none flex-1 min-w-[150px] p-1 text-sm"
                                 />
                           </div>
                       </FormControl>
@@ -2029,12 +2047,17 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         </Card>
 
         {/* Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Details</CardTitle>
-            <CardDescription>Add the date and location of your memory.</CardDescription>
+        <Card className="clean-card border border-slate-200 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+              <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                <CalendarIcon className="w-3.5 h-3.5 text-white" />
+              </div>
+              Details
+            </CardTitle>
+            <CardDescription className="text-sm text-slate-600">Add the date and location of your memory.</CardDescription>
           </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-8">
+          <CardContent className="grid md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="date"
@@ -2089,11 +2112,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         </Card>
 
         {/* Submit Button - Mobile Optimized */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-xl border-t mobile-safe-bottom">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg">
           <Button 
             type="submit" 
             disabled={isSubmitting || isProcessingAI} 
-            className="w-full mt-6 mb-8"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium"
           >
             {isSubmitting ? (
               <>

@@ -125,7 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 
                 // Redirect new users to welcome flow, existing users to main page
                 if (isNewUser) {
-                  router.push('/welcome');
+                  // Add state to indicate this is from sign-up
+                  router.push('/welcome?fromSignUp=true');
                 } else {
                   router.push('/');
                 }

@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
-import { BookOpen, Heart, ArrowRight, Sparkles } from 'lucide-react';
+import { BookOpen, Heart, ArrowRight } from 'lucide-react';
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5 mr-2" viewBox="0 0 48 48">
@@ -28,6 +28,10 @@ export function WelcomeFlow() {
   const [currentStep, setCurrentStep] = useState<'welcome' | 'signin'>('welcome');
   const [autoRedirectTimer, setAutoRedirectTimer] = useState(10);
   const [showAutoRedirect, setShowAutoRedirect] = useState(false);
+  
+  // Check if this is a new user visit (from sign-up) vs manual navigation
+  const isFromSignUp = typeof window !== 'undefined' && 
+    new URLSearchParams(window.location.search).get('fromSignUp') === 'true';
 
   useEffect(() => {
     // Trigger animation after component mounts
@@ -38,8 +42,8 @@ export function WelcomeFlow() {
   }, []);
 
   useEffect(() => {
-    // If user is already signed in, show the welcome message with auto-redirect
-    if (user && currentStep === 'welcome') {
+    // Only show auto-redirect for new users (from sign-up), not manual navigation
+    if (user && currentStep === 'welcome' && isFromSignUp) {
       setShowAutoRedirect(true);
       
       // Start countdown timer
@@ -56,7 +60,7 @@ export function WelcomeFlow() {
 
       return () => clearInterval(countdownInterval);
     }
-  }, [user, router, currentStep]);
+  }, [user, router, currentStep, isFromSignUp]);
 
   const handleContinue = () => {
     if (user) {
@@ -130,7 +134,7 @@ export function WelcomeFlow() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50/30 to-white p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-white p-4">
       <div className="w-full max-w-2xl text-center space-y-8">
         {/* Logo and Brand */}
         <div 
@@ -139,15 +143,11 @@ export function WelcomeFlow() {
           }`}
         >
           <div className="relative">
-            <div className="w-24 h-24 bg-indigo-600 rounded-3xl shadow-lg flex items-center justify-center">
-              <BookOpen className="w-12 h-12 text-white" />
+            <div className="w-20 h-20 bg-indigo-600 rounded-2xl shadow-sm flex items-center justify-center">
+              <BookOpen className="w-10 h-10 text-white" />
             </div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
-              <Heart className="w-4 h-4 text-white fill-current" />
-            </div>
-            {/* Sparkle Animation */}
-            <div className="absolute -top-1 -left-1 w-6 h-6 text-yellow-400 animate-pulse">
-              <Sparkles className="w-6 h-6" />
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
+              <Heart className="w-3 h-3 text-white fill-current" />
             </div>
           </div>
         </div>
@@ -173,7 +173,10 @@ export function WelcomeFlow() {
 
           <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
             {user ? 
-              "You're all set! Start capturing your precious moments with AI-powered insights, organize them beautifully, and relive them whenever you want." :
+              (isFromSignUp ? 
+                "You're all set! Start capturing your precious moments with AI-powered insights, organize them beautifully, and relive them whenever you want." :
+                "Welcome back! Here's a reminder of what makes Memory Lane special. Continue capturing and organizing your precious memories with AI-powered insights."
+              ) :
               "Capture your precious moments with AI-powered insights, organize them beautifully, and relive them whenever you want. Your memories deserve to be preserved."
             }
           </p>
@@ -224,19 +227,19 @@ export function WelcomeFlow() {
         >
           {showAutoRedirect && user ? (
             <div className="text-center space-y-4">
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 max-w-md mx-auto">
-                <p className="text-slate-600 mb-4">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 max-w-md mx-auto">
+                <p className="text-slate-600 mb-4 text-sm">
                   Welcome! You'll be automatically redirected to your dashboard in:
                 </p>
-                <div className="text-4xl font-bold text-indigo-600 mb-4">
+                <div className="text-3xl font-bold text-indigo-600 mb-4">
                   {autoRedirectTimer}s
                 </div>
                 <Button
                   onClick={handleContinue}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-200 px-6 py-3 text-base font-medium rounded-xl shadow-md hover:shadow-lg"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-200 h-11 text-base font-medium flex items-center justify-center gap-2"
                 >
                   Continue Now
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  <ArrowRight className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -245,7 +248,7 @@ export function WelcomeFlow() {
               onClick={handleContinue}
               className="bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-200 px-8 py-4 text-lg font-medium rounded-xl shadow-lg hover:shadow-xl flex items-center gap-2"
             >
-              Get Started
+              {user ? 'Back to Dashboard' : 'Get Started'}
               <ArrowRight className="w-5 h-5" />
             </Button>
           )}

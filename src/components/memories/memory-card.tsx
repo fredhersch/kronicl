@@ -17,7 +17,7 @@ export function MemoryCard({ memory }: { memory: Memory }) {
     <Link href={`/memories/${memory.id}`}>
       <Card className="group overflow-hidden mobile-shadow hover:mobile-shadow-lg transition-all duration-300 border-0 bg-card memory-tile-mobile">
         {/* Media Preview */}
-        <div className="relative aspect-square overflow-hidden">
+        <div className="relative aspect-video overflow-hidden">
           {primaryMedia ? (
             <Image
               src={primaryMedia.url}
