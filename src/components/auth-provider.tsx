@@ -84,15 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
             const idToken = await user.getIdToken();
+            
+            // Check if this is a new user (created within the last minute)
+            const isNewUser = user.metadata.creationTime && 
+              (Date.now() - new Date(user.metadata.creationTime).getTime()) < 60000;
+            
             try {
                 setUser(user);
                 
                 // Create or update user profile in Firestore for ALL sign-ins
                 try {
-                  // Check if this is a new user (created within the last minute)
-                  const isNewUser = user.metadata.creationTime && 
-                    (Date.now() - new Date(user.metadata.creationTime).getTime()) < 60000;
-                  
                   // Only include photoURL if it exists
                   const profileData: any = {
                     displayName: user.displayName || 'Anonymous User',
@@ -121,8 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         'Authorization': `Bearer ${idToken}`,
                     },
                 });
-                // Redirect to main page after successful authentication
-                router.push('/');
+                
+                // Redirect new users to welcome flow, existing users to main page
+                if (isNewUser) {
+                  router.push('/welcome');
+                } else {
+                  router.push('/');
+                }
             } catch (err) {
                 console.error("Session cookie creation failed:", err);
             }

@@ -1,9 +1,11 @@
 import { LoginForm } from '@/components/auth/login-form';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sign In - Memory Lane',
+  description: 'Sign in to Memory Lane to continue capturing and cherishing your precious memories.',
+};
 
 export default function LoginPage() {
-  return (
-    <main className="flex items-center justify-center w-full min-h-screen bg-background font-body">
-      <LoginForm />
-    </main>
-  );
+  return <LoginForm />;
 }

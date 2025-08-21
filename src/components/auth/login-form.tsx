@@ -11,7 +11,8 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
-import { Logo } from '../icons/logo';
+import { BookOpen, Heart } from 'lucide-react';
+import Link from 'next/link';
 
 const GoogleIcon = () => (
     <svg className="w-5 h-5 mr-2" viewBox="0 0 48 48">
@@ -34,38 +35,60 @@ export function LoginForm() {
   }, [user, loading, router]);
 
   return (
-    <Card className="w-full max-w-sm shadow-lg bg-card/80 backdrop-blur-sm border-border/20">
-      <CardHeader className="text-center">
-        <div className="flex justify-center mb-4">
-          <Logo className="w-12 h-12 text-primary" />
-        </div>
-        <CardTitle className="font-headline text-3xl">Welcome to MemoryLane</CardTitle>
-        <CardDescription>
-          Sign in with Google to begin capturing and cherishing your memories.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <Button
-          variant="outline"
-          className="w-full h-12 text-base border-2 hover:border-primary/50 hover:bg-primary/5 transition-colors"
-          onClick={signInWithGoogle}
-          disabled={loading}
-        >
-          <GoogleIcon />
-          {loading ? 'Signing in...' : 'Sign in with Google'}
-        </Button>
-        
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">
-            Quick and secure authentication with your Google account
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-white p-4">
+      <Card className="clean-card w-full max-w-md">
+        <CardHeader className="text-center space-y-6">
+          {/* Logo and Brand */}
+          <div className="flex justify-center">
+            <div className="relative">
+              <div className="w-16 h-16 bg-indigo-600 rounded-2xl shadow-sm flex items-center justify-center">
+                <BookOpen className="w-8 h-8 text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
+                <Heart className="w-2.5 h-2.5 text-white fill-current" />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <CardTitle className="text-2xl font-semibold text-slate-900">
+              Welcome back to Memory Lane
+            </CardTitle>
+            <CardDescription className="text-slate-600">
+              Sign in to continue capturing and cherishing your memories
+            </CardDescription>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Sign In Button */}
+          <Button
+            onClick={signInWithGoogle}
+            disabled={loading}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-200 h-12 text-base font-medium flex items-center justify-center gap-2"
+          >
+            <GoogleIcon />
+            {loading ? 'Signing in...' : 'Sign in with Google'}
+          </Button>
+
+          {/* Sign Up Link */}
+          <div className="text-center text-sm text-slate-600">
+            Don't have an account?{' '}
+            <Link
+              href="/signup"
+              className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+            >
+              Sign up
+            </Link>
+          </div>
+        </CardContent>
+
+        <CardFooter>
+          <p className="text-xs text-center text-slate-500 w-full">
+            By signing in, you agree to our terms of service and privacy policy.
           </p>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <p className="text-xs text-center text-muted-foreground">
-          By signing in, you agree to our terms of service and privacy policy.
-        </p>
-      </CardFooter>
-    </Card>
+        </CardFooter>
+      </Card>
+    </div>
   );
 }

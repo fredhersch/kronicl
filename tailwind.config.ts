@@ -13,7 +13,99 @@ const config: Config = {
         'xs': '475px',
       },
       fontFamily: {
-        code: ['monospace'],
+        // Modern Sans-Serif Fonts
+        sans: [
+          'Inter',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'Oxygen',
+          'Ubuntu',
+          'Cantarell',
+          'Fira Sans',
+          'Droid Sans',
+          'Helvetica Neue',
+          'sans-serif'
+        ],
+        // Display Fonts for Headings
+        display: [
+          'Poppins',
+          'Inter',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'Helvetica Neue',
+          'Arial',
+          'sans-serif'
+        ],
+        // Monospace Fonts for Code
+        mono: [
+          'JetBrains Mono',
+          'Fira Code',
+          'Monaco',
+          'Consolas',
+          'Liberation Mono',
+          'Courier New',
+          'monospace'
+        ],
+        // Body Text Font
+        body: [
+          'Inter',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif'
+        ],
+        // Headline Font
+        headline: [
+          'Poppins',
+          'Inter',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif'
+        ],
+        // Code/Monospace
+        code: [
+          'JetBrains Mono',
+          'Fira Code',
+          'Monaco',
+          'Consolas',
+          'Liberation Mono',
+          'Courier New',
+          'monospace'
+        ],
+      },
+      fontWeight: {
+        thin: '100',
+        extralight: '200',
+        light: '300',
+        normal: '400',
+        medium: '500',
+        semibold: '600',
+        bold: '700',
+        extrabold: '800',
+        black: '900',
+      },
+      fontSize: {
+        'xs': ['0.75rem', { lineHeight: '1.4' }],
+        'sm': ['0.875rem', { lineHeight: '1.5' }],
+        'base': ['1rem', { lineHeight: '1.6' }],
+        'lg': ['1.125rem', { lineHeight: '1.5' }],
+        'xl': ['1.25rem', { lineHeight: '1.4' }],
+        '2xl': ['1.5rem', { lineHeight: '1.3' }],
+        '3xl': ['1.875rem', { lineHeight: '1.2' }],
+        '4xl': ['2.25rem', { lineHeight: '1.1' }],
+        '5xl': ['3rem', { lineHeight: '1' }],
+        '6xl': ['3.75rem', { lineHeight: '1' }],
       },
       colors: {
         background: 'hsl(var(--background))',
