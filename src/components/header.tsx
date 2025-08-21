@@ -1,12 +1,14 @@
 'use client';
 import Link from 'next/link';
-import { PlusCircle, Search, Home, User, Plus, LogOut, Settings, FileText } from 'lucide-react';
+import { Camera, PlusCircle, Search, Home, User, Plus, LogOut, Settings, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from './icons/logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/use-auth';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useRef } from 'react';
+import { setPhoto } from '@/lib/photo-store';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +21,32 @@ import {
 export function Header({ onSearch }: { onSearch: (query: string) => void }) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTakePhoto = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setPhoto(file);
+      router.push('/memories/new');
+    }
+  };
 
   return (
     <>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        capture="environment"
+        hidden
+        data-testid="take-photo-input"
+      />
       {/* Top Header - Mobile Optimized */}
       <header className="sticky top-0 z-50 flex items-center mobile-header px-4 border-b bg-background/95 backdrop-blur-xl mobile-safe-top">
         <div className="flex items-center gap-3 flex-1">
@@ -97,14 +122,20 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
             </span>
           </Link>
           
+          <button
+            onClick={handleTakePhoto}
+            className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors"
+          >
+            <Camera className="w-6 h-6 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Photo</span>
+          </button>
+
           <Link href="/memories/new" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
             <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg">
               <Plus className="w-6 h-6 text-primary-foreground" />
             </div>
             <span className="text-xs text-primary font-medium">New</span>
           </Link>
-          
-          {/* Removed Profile link from bottom navigation */}
         </div>
       </nav>
     </>
