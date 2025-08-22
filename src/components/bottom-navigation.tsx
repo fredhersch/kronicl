@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Home, Plus, Images, Sparkles } from 'lucide-react';
+import { Home, Plus, Images } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export function BottomNavigation() {
@@ -29,12 +29,7 @@ export function BottomNavigation() {
           </span>
         </Link>
         
-        <Link href="/welcome" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
-          <Sparkles className={`w-6 h-6 ${pathname === '/welcome' ? 'text-indigo-600' : 'text-slate-400'}`} />
-          <span className={`text-xs ${pathname === '/welcome' ? 'text-indigo-600 font-medium' : 'text-slate-400'}`}>
-            Welcome
-          </span>
-        </Link>
+
         
         <Link href="/memories/new" className="flex flex-col items-center p-2 rounded-xl transition-all duration-300 hover:scale-105 -translate-y-7">
           <div className="relative">

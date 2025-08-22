@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Search, User, LogOut, BookOpen, Heart, Settings } from 'lucide-react';
+import { Search, User, LogOut, BookOpen, Heart, Settings, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -81,6 +81,13 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Profile Settings</span>
+                </DropdownMenuItem>
+              </Link>
+
+              <Link href="/welcome">
+                <DropdownMenuItem>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  <span>Welcome Screen</span>
                 </DropdownMenuItem>
               </Link>
 
