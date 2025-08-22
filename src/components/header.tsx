@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Search, User, LogOut, BookOpen, Heart, Settings, Sparkles } from 'lucide-react';
+import { Search, User, LogOut, BookOpen, Heart, Settings, Sparkles, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -34,6 +34,59 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
             </div>
             <h1 className="hidden sm:block text-lg font-semibold text-slate-900">Memory Lane</h1>
           </Link>
+          
+          {/* Hamburger Menu - Hidden on mobile, visible on desktop */}
+          <div className="hidden md:block ml-6">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-9 px-3 hover:bg-slate-100">
+                  <Menu className="w-4 h-4 mr-2" />
+                  <span className="text-sm font-medium">Menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="start">
+                <DropdownMenuLabel>Navigation</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                <Link href="/">
+                  <DropdownMenuItem>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </DropdownMenuItem>
+                </Link>
+                
+                <Link href="/gallery">
+                  <DropdownMenuItem>
+                    <Heart className="mr-2 h-4 w-4" />
+                    <span>Gallery</span>
+                  </DropdownMenuItem>
+                </Link>
+                
+                <Link href="/memories/new">
+                  <DropdownMenuItem>
+                    <span className="mr-2 h-4 w-4 text-lg font-bold">+</span>
+                    <span>New Memory</span>
+                  </DropdownMenuItem>
+                </Link>
+                
+                <DropdownMenuSeparator />
+                
+                <Link href="/profile">
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Profile Settings</span>
+                  </DropdownMenuItem>
+                </Link>
+                
+                <Link href="/welcome">
+                  <DropdownMenuItem>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    <span>Welcome Screen</span>
+                  </DropdownMenuItem>
+                </Link>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           
           {/* Search Bar - Center on mobile, right on desktop */}
           <div className="flex-1 flex justify-center sm:justify-end sm:mr-4">
