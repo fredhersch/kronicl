@@ -150,6 +150,11 @@ input, textarea, select {
   
   /* Mobile-optimized memory tiles */
   @media (max-width: 640px) {
+    /* Add bottom padding to prevent content from being hidden behind bottom nav */
+    body {
+      padding-bottom: 4rem; /* 64px to match h-16 of bottom nav */
+    }
+    
     .memory-tile-mobile {
       min-height: 200px;
     }

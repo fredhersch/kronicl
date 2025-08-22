@@ -38,6 +38,7 @@ export interface UserProfile {
     privacy: 'public' | 'private' | 'friends';
     autoBackup: boolean;
     storageQuota: number; // in MB
+    galleryFolder: string; // Firebase Storage path for user's gallery
   };
 }
 
@@ -53,7 +54,8 @@ export const defaultUserPreferences = {
 export const defaultUserSettings = {
   privacy: 'private' as const,
   autoBackup: false,
-  storageQuota: 1000 // 1GB default
+  storageQuota: 1000, // 1GB default
+  galleryFolder: 'photos-demo' // Default to demo folder, users can change this
 };
 
 // Server-side functions (using Firebase Admin)

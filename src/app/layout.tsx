@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/auth-provider';
 import { PageLogger } from '@/components/page-logger';
+import { BottomNavigation } from '@/components/bottom-navigation';
 import { Suspense } from 'react';
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default function RootLayout({
             <PageLogger />
           </Suspense>
           {children}
+          <BottomNavigation />
           <Toaster />
         </AuthProvider>
       </body>

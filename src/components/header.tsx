@@ -1,11 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { PlusCircle, Search, Home, User, Plus, LogOut, Settings, BookOpen, Heart, Sparkles } from 'lucide-react';
+import { Search, User, LogOut, BookOpen, Heart, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/use-auth';
-import { usePathname } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +16,6 @@ import {
 
 export function Header({ onSearch }: { onSearch: (query: string) => void }) {
   const { user, signOut } = useAuth();
-  const pathname = usePathname();
 
   return (
     <>
@@ -79,6 +77,15 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
 
+              <Link href="/profile">
+                <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Profile Settings</span>
+                </DropdownMenuItem>
+              </Link>
+
+              <DropdownMenuSeparator />
+
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sign Out</span>
@@ -89,36 +96,7 @@ export function Header({ onSearch }: { onSearch: (query: string) => void }) {
         </div>
       </header>
 
-      {/* Bottom Navigation - Mobile App Style */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg mobile-bottom-nav">
-        <div className="flex items-center justify-around h-16 px-2">
-          <Link href="/" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
-            <Home className={`w-6 h-6 ${pathname === '/' ? 'text-indigo-600' : 'text-slate-400'}`} />
-            <span className={`text-xs ${pathname === '/' ? 'text-indigo-600 font-medium' : 'text-slate-400'}`}>
-              Home
-            </span>
-          </Link>
-          
-          <Link href="/welcome" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
-            <Sparkles className={`w-6 h-6 ${pathname === '/welcome' ? 'text-indigo-600' : 'text-slate-400'}`} />
-            <span className={`text-xs ${pathname === '/welcome' ? 'text-indigo-600 font-medium' : 'text-slate-400'}`}>
-              Welcome
-            </span>
-          </Link>
-          
-          <Link href="/memories/new" className="flex flex-col items-center p-2 rounded-xl transition-all duration-300 hover:scale-105 -translate-y-7">
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-full flex items-center justify-center shadow-xl border-4 border-white hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                <Plus className="w-8 h-8 text-white" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                <span className="text-white text-xs font-bold">+</span>
-              </div>
-            </div>
-            <span className="text-sm text-indigo-600 font-bold mt-4">New</span>
-          </Link>
-        </div>
-      </nav>
+
     </>
   );
 }

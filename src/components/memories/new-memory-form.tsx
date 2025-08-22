@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -81,8 +81,16 @@ const blobToDataUri = (blob: Blob): Promise<string> => {
     });
 }
 
+// Helper function to convert URL to File object
+async function urlToFile(url: string, filename: string): Promise<File> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new File([blob], filename, { type: blob.type });
+}
+
 export function NewMemoryForm({ userId }: { userId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { db, storage } = useAuth();
   const { toast } = useToast();
   const { logPageEvent, getCurrentPageInfo } = usePageLogging();
@@ -194,6 +202,56 @@ export function NewMemoryForm({ userId }: { userId: string }) {
       hasSetDateFromFile.current = true;
     }
   }, [mediaFiles, form, userId]);
+
+  // Handle pre-selected media from gallery
+  useEffect(() => {
+    const preselectedMediaParam = searchParams.get('preselectedMedia');
+    if (preselectedMediaParam) {
+      try {
+        const mediaUrls = JSON.parse(preselectedMediaParam) as string[];
+        
+        // Convert URLs to File objects
+        Promise.all(
+          mediaUrls.map(async (url, index) => {
+            try {
+              // Extract filename from URL or create a default one
+              const urlParts = url.split('/');
+              const filename = urlParts[urlParts.length - 1] || `gallery-item-${index + 1}`;
+              return await urlToFile(url, filename);
+            } catch (error) {
+              console.error('Failed to convert URL to file:', url, error);
+              return null;
+            }
+          })
+        ).then((files) => {
+          const validFiles = files.filter((file): file is File => file !== null);
+          if (validFiles.length > 0) {
+            setMediaFiles(validFiles);
+            setIncludeMedia(true);
+            
+            toast({
+              title: 'Media Selected',
+              description: `${validFiles.length} item${validFiles.length !== 1 ? 's' : ''} loaded from gallery`,
+            });
+          }
+        }).catch((error) => {
+          console.error('Failed to load pre-selected media:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load selected media from gallery',
+            variant: 'destructive'
+          });
+        });
+        
+        // Clear the URL parameter
+        const url = new URL(window.location.href);
+        url.searchParams.delete('preselectedMedia');
+        window.history.replaceState({}, '', url.toString());
+      } catch (error) {
+        console.error('Failed to parse preselected media:', error);
+      }
+    }
+  }, [searchParams, toast]);
 
   const handleLocationSearch = async () => {
     const locationQuery = form.getValues('location');
@@ -2112,11 +2170,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         </Card>
 
         {/* Submit Button - Mobile Optimized */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg sm:relative sm:bottom-auto sm:left-auto sm:right-auto sm:bg-transparent sm:border-t-0 sm:shadow-none sm:p-0 sm:mt-6">
           <Button 
             type="submit" 
             disabled={isSubmitting || isProcessingAI} 
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium mb-16 sm:mb-0"
           >
             {isSubmitting ? (
               <>

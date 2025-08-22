@@ -7,5 +7,21 @@ service firebase.storage {
     match /memories/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // Only allow users to read and write their own files in the gallery folder.
+    match /gallery/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow all authenticated users to read from the demo photos folder.
+    match /photos-demo/{allPaths=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read from any folder that matches their user-specific pattern
+    // This enables custom gallery folders like "user123-photos", "my-gallery", etc.
+    match /{customFolder}/{allPaths=**} {
+      allow read: if request.auth != null;
+    }
   }
 }
