@@ -2030,17 +2030,18 @@ export function NewMemoryForm({ userId }: { userId: string }) {
         </Card>
 
         {/* AI Generated Content */}
-        <Card className="clean-card border border-slate-200 shadow-sm">
-            <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-              <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
-                <Wand2 className="w-3.5 h-3.5 text-white" />
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="ai-content" className="border border-slate-200 rounded-lg shadow-sm">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
+                  <Wand2 className="w-3.5 h-3.5 text-white" />
+                </div>
+                AI Generated Content
               </div>
-              AI Generated Content
-            </CardTitle>
-                <CardDescription className="text-sm text-slate-600">Review and edit the AI-generated title, summary, and tags.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-4">
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
                   name="title"
@@ -2101,21 +2102,24 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                     </FormItem>
                   )}
                 />
-            </CardContent>
-        </Card>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         {/* Details */}
-        <Card className="clean-card border border-slate-200 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-              <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
-                <CalendarIcon className="w-3.5 h-3.5 text-white" />
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="details" className="border border-slate-200 rounded-lg shadow-sm">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <CalendarIcon className="w-3.5 h-3.5 text-white" />
+                </div>
+                Details
               </div>
-              Details
-            </CardTitle>
-            <CardDescription className="text-sm text-slate-600">Add the date and location of your memory.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid md:grid-cols-2 gap-4">
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-4">
+              <div className="grid md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="date"
@@ -2165,9 +2169,11 @@ export function NewMemoryForm({ userId }: { userId: string }) {
                   )}
                 />
                 <Map latitude={latitude} longitude={longitude} />
+              </div>
             </div>
-          </CardContent>
-        </Card>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         {/* Submit Button - Mobile Optimized */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg sm:relative sm:bottom-auto sm:left-auto sm:right-auto sm:bg-transparent sm:border-t-0 sm:shadow-none sm:p-0 sm:mt-6">

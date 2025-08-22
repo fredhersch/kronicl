@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Home, Plus, Images } from 'lucide-react';
+import { BookOpen, Plus, Images } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export function BottomNavigation() {
@@ -17,9 +17,9 @@ export function BottomNavigation() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg sm:hidden">
       <div className="flex items-center justify-around h-16 px-2">
         <Link href="/" className="flex flex-col items-center gap-1 p-2 rounded-xl transition-colors">
-          <Home className={`w-6 h-6 ${pathname === '/' ? 'text-indigo-600' : 'text-slate-400'}`} />
+          <BookOpen className={`w-6 h-6 ${pathname === '/' ? 'text-indigo-600' : 'text-slate-400'}`} />
           <span className={`text-xs ${pathname === '/' ? 'text-indigo-600 font-medium' : 'text-slate-400'}`}>
-            Home
+            Memories
           </span>
         </Link>
         
