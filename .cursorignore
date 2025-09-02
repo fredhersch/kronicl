@@ -1,0 +1,41 @@
+# Cursor-specific ignore file
+# This overrides .gitignore rules for Cursor IDE
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# studio
+.studio
+
+# Note: NOT ignoring .env files so Cursor can see them
+# .env*.local  <- commented out so Cursor can see these
+# .env         <- commented out so Cursor can see these
